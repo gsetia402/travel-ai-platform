@@ -1,0 +1,89 @@
+from fastapi import FastAPI, Depends, HTTPException
+from dotenv import load_dotenv
+from sqlalchemy.orm import Session
+
+from database import get_db, create_tables
+from models.itinerary import ItineraryRequest, ItineraryResponse
+from models.weather import WeatherRequest, WeatherResponse
+from models.trip import TripPlanRequest, TripPlanResponse
+from models.user_preference import UserPreferenceRequest, UserPreferenceResponse, MemorySaveResponse
+from services.itinerary_service import generate_itinerary
+from services.weather_service import get_weather
+from services.supervisor_service import plan_trip
+from services.memory_service import save_preferences, get_preferences
+from models.recommendation import RecommendationRequest, RecommendationResponse
+from services.recommendation_service import get_recommendations
+from models.budget import BudgetRequest, BudgetResponse
+from services.budget_service import estimate_budget
+
+load_dotenv()
+
+app = FastAPI(title="Travel AI Agents", version="0.1.0")
+
+
+@app.on_event("startup")
+def on_startup():
+    create_tables()
+
+
+@app.get("/health")
+def health_check():
+    return {"status": "UP"}
+
+
+@app.post("/itinerary", response_model=ItineraryResponse)
+def create_itinerary(request: ItineraryRequest):
+    return generate_itinerary(request)
+
+
+@app.post("/weather", response_model=WeatherResponse)
+def fetch_weather(request: WeatherRequest):
+    try:
+        return get_weather(request)
+    except ValueError as e:
+        return WeatherResponse(
+            destination=request.destination,
+            temperature=0,
+            condition="Unknown",
+            recommendation=str(e),
+        )
+
+
+@app.post("/plan-trip", response_model=TripPlanResponse)
+def create_trip_plan(request: TripPlanRequest):
+    return plan_trip(request)
+
+
+@app.post("/memory/save", response_model=MemorySaveResponse)
+def save_user_preferences(request: UserPreferenceRequest, db: Session = Depends(get_db)):
+    try:
+        return save_preferences(db, request)
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/memory/{user_id}", response_model=UserPreferenceResponse)
+def get_user_preferences(user_id: str, db: Session = Depends(get_db)):
+    try:
+        result = get_preferences(db, user_id)
+        if result is None:
+            raise HTTPException(status_code=404, detail=f"No preferences found for user: {user_id}")
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/recommend", response_model=RecommendationResponse)
+def recommend_destinations(request: RecommendationRequest):
+    try:
+        return get_recommendations(request)
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/budget", response_model=BudgetResponse)
+def get_budget_estimate(request: BudgetRequest):
+    try:
+        return estimate_budget(request)
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=str(e))
