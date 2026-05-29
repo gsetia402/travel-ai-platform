@@ -1,7 +1,8 @@
 from fastapi import FastAPI, Depends, HTTPException
-from dotenv import load_dotenv
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
+from config import APP_VERSION, APP_TITLE, APP_ENV, CORS_ORIGINS, setup_logging
 from database import get_db, create_tables
 from models.itinerary import ItineraryRequest, ItineraryResponse
 from models.weather import WeatherRequest, WeatherResponse
@@ -16,9 +17,17 @@ from services.recommendation_service import get_recommendations
 from models.budget import BudgetRequest, BudgetResponse
 from services.budget_service import estimate_budget
 
-load_dotenv()
+setup_logging()
 
-app = FastAPI(title="Travel AI Agents", version="0.1.0")
+app = FastAPI(title=APP_TITLE, version=APP_VERSION)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.on_event("startup")
@@ -28,7 +37,11 @@ def on_startup():
 
 @app.get("/health")
 def health_check():
-    return {"status": "UP"}
+    return {
+        "status": "UP",
+        "version": APP_VERSION,
+        "environment": APP_ENV,
+    }
 
 
 @app.post("/itinerary", response_model=ItineraryResponse)

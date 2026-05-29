@@ -193,10 +193,15 @@ Response:
 ```
 ai-agents/
 ├── main.py                          # FastAPI app & endpoints
+├── config.py                        # Centralized configuration
 ├── database.py                      # SQLAlchemy engine & session
 ├── requirements.txt                 # Python dependencies
+├── Dockerfile                       # Docker image definition
+├── docker-compose.yml               # Docker Compose setup
+├── render.yaml                      # Render deployment config
 ├── .env.example                     # Environment template
 ├── .gitignore                       # Git ignore rules
+├── RELEASE_NOTES.md                 # Version history
 ├── README.md                        # Documentation
 │
 ├── models/
@@ -233,8 +238,8 @@ ai-agents/
 
 ```bash
 # Clone the repository
-git clone https://github.com/<your-username>/travel-ai-platform.git
-cd travel-ai-platform/ai-agents
+git clone https://github.com/gsetia402/travel-ai-platform.git
+cd travel-ai-platform
 
 # Create virtual environment
 python -m venv venv
@@ -256,6 +261,43 @@ uvicorn main:app --reload --port 8000
 - API: http://localhost:8000
 - Docs: http://localhost:8000/docs (Swagger UI)
 - ReDoc: http://localhost:8000/redoc
+
+---
+
+## Deployment
+
+### Docker
+
+```bash
+# Build and run
+docker-compose up --build
+
+# Run in background
+docker-compose up -d --build
+```
+
+### Render
+
+1. Connect your GitHub repo on [Render](https://render.com)
+2. Select **Web Service**
+3. Render auto-detects `render.yaml`
+4. Add environment variables in Render dashboard:
+   - `GEMINI_API_KEY`
+   - `OPENWEATHER_API_KEY`
+5. Deploy
+
+---
+
+## Environment Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `APP_ENV` | `development` | `development` or `production` |
+| `APP_PORT` | `8000` | Server port |
+| `LOG_LEVEL` | `INFO` | Logging level (DEBUG, INFO, WARNING, ERROR) |
+| `CORS_ORIGINS` | `*` | Comma-separated allowed origins |
+| `GEMINI_API_KEY` | — | Google Gemini API key |
+| `OPENWEATHER_API_KEY` | — | OpenWeather API key |
 
 ---
 
