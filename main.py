@@ -35,6 +35,16 @@ def on_startup():
     create_tables()
 
 
+@app.get("/")
+def root():
+    return {
+        "app": "Travel AI Platform",
+        "version": APP_VERSION,
+        "docs": "/docs",
+        "health": "/health",
+    }
+
+
 @app.get("/health")
 def health_check():
     return {
