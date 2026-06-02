@@ -8,6 +8,7 @@ from models.group_trip import (
     TripCreateRequest,
     TripResponse,
     TripSummaryResponse,
+    RiskSummaryResponse,
 )
 from services.trip_service import (
     create_new_trip,
@@ -15,6 +16,7 @@ from services.trip_service import (
     get_trip,
     remove_trip,
     get_trip_summary,
+    get_risk_summary,
 )
 
 router = APIRouter(tags=["Trips"])
@@ -54,5 +56,13 @@ def delete_trip(trip_id: str, db: Session = Depends(get_db)):
 def trip_summary(trip_id: str, db: Session = Depends(get_db)):
     try:
         return get_trip_summary(db, trip_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/trips/{trip_id}/risk-summary", response_model=RiskSummaryResponse)
+def risk_summary(trip_id: str, db: Session = Depends(get_db)):
+    try:
+        return get_risk_summary(db, trip_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

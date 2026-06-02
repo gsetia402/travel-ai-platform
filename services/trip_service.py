@@ -7,6 +7,7 @@ from models.group_trip import (
     TripCreateRequest,
     TripResponse,
     TripSummaryResponse,
+    RiskSummaryResponse,
 )
 from repositories.trip_repository import (
     create_trip,
@@ -14,8 +15,14 @@ from repositories.trip_repository import (
     get_trip_by_id,
     delete_trip,
 )
-from repositories.traveller_repository import count_travellers_by_trip
+from repositories.traveller_repository import (
+    count_travellers_by_trip,
+    count_travellers_by_status,
+    count_travellers_with_medical,
+    count_travellers_with_special_requirements,
+)
 from repositories.room_repository import count_rooms_by_trip, count_allocated_travellers_by_trip
+from repositories.consent_repository import count_consents_by_trip_and_status
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +62,11 @@ def get_trip_summary(db: Session, trip_id: str) -> TripSummaryResponse:
     allocated_travellers = count_allocated_travellers_by_trip(db, trip_id)
     unallocated = max(0, registered - allocated_travellers)
 
+    confirmed = count_travellers_by_status(db, trip_id, "CONFIRMED")
+    invited = count_travellers_by_status(db, trip_id, "INVITED")
+    pending_consents = count_consents_by_trip_and_status(db, trip_id, "PENDING")
+    approved_consents = count_consents_by_trip_and_status(db, trip_id, "APPROVED")
+
     return TripSummaryResponse(
         trip_name=trip.trip_name,
         destination=trip.destination,
@@ -64,4 +76,26 @@ def get_trip_summary(db: Session, trip_id: str) -> TripSummaryResponse:
         pending_travellers=pending,
         rooms_allocated=rooms_allocated,
         unallocated_travellers=unallocated,
+        confirmed_travellers=confirmed,
+        pending_confirmations=invited,
+        pending_consents=pending_consents,
+        approved_consents=approved_consents,
+    )
+
+
+def get_risk_summary(db: Session, trip_id: str) -> RiskSummaryResponse:
+    trip = get_trip_by_id(db, trip_id)
+    if not trip:
+        raise ValueError(f"Trip not found: {trip_id}")
+
+    medical = count_travellers_with_medical(db, trip_id)
+    special = count_travellers_with_special_requirements(db, trip_id)
+    pending_consents = count_consents_by_trip_and_status(db, trip_id, "PENDING")
+    high_risk = medical  # travellers with medical conditions are considered high-risk
+
+    return RiskSummaryResponse(
+        medical_cases=medical,
+        travellers_with_special_requirements=special,
+        pending_consents=pending_consents,
+        high_risk_travellers=high_risk,
     )

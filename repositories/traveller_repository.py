@@ -4,7 +4,7 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
-from models.group_trip import TravellerTable, TravellerCreateRequest
+from models.group_trip import TravellerTable, TravellerCreateRequest, TravellerUpdateRequest
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +20,18 @@ def add_traveller(db: Session, trip_id: str, request: TravellerCreateRequest) ->
         gender=request.gender,
         department=request.department,
         city=request.city,
+        date_of_birth=request.date_of_birth,
+        age=request.age,
+        emergency_contact_name=request.emergency_contact_name,
+        emergency_contact_phone=request.emergency_contact_phone,
+        emergency_relationship=request.emergency_relationship,
+        medical_conditions=request.medical_conditions,
+        allergies=request.allergies,
+        special_requirements=request.special_requirements,
+        dietary_preferences=request.dietary_preferences,
+        passport_number=request.passport_number,
+        nationality=request.nationality,
+        participation_status=request.participation_status or "INVITED",
     )
     db.add(traveller)
     db.commit()
@@ -41,6 +53,7 @@ def add_travellers_bulk(db: Session, trip_id: str, travellers: List[TravellerCre
             gender=req.gender,
             department=req.department,
             city=req.city,
+            participation_status=req.participation_status or "INVITED",
         )
         records.append(record)
     db.add_all(records)
@@ -69,3 +82,39 @@ def delete_traveller(db: Session, traveller_id: str) -> bool:
 
 def count_travellers_by_trip(db: Session, trip_id: str) -> int:
     return db.query(TravellerTable).filter(TravellerTable.trip_id == trip_id).count()
+
+
+def update_traveller(db: Session, traveller_id: str, request: TravellerUpdateRequest) -> Optional[TravellerTable]:
+    traveller = get_traveller_by_id(db, traveller_id)
+    if not traveller:
+        return None
+    update_data = request.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(traveller, field, value)
+    db.commit()
+    db.refresh(traveller)
+    logger.info(f"Updated traveller: {traveller_id}")
+    return traveller
+
+
+def count_travellers_by_status(db: Session, trip_id: str, status: str) -> int:
+    return db.query(TravellerTable).filter(
+        TravellerTable.trip_id == trip_id,
+        TravellerTable.participation_status == status,
+    ).count()
+
+
+def count_travellers_with_medical(db: Session, trip_id: str) -> int:
+    return db.query(TravellerTable).filter(
+        TravellerTable.trip_id == trip_id,
+        TravellerTable.medical_conditions.isnot(None),
+        TravellerTable.medical_conditions != "",
+    ).count()
+
+
+def count_travellers_with_special_requirements(db: Session, trip_id: str) -> int:
+    return db.query(TravellerTable).filter(
+        TravellerTable.trip_id == trip_id,
+        TravellerTable.special_requirements.isnot(None),
+        TravellerTable.special_requirements != "",
+    ).count()

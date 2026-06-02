@@ -19,6 +19,8 @@ from services.budget_service import estimate_budget
 from routes.trip_routes import router as trip_router
 from routes.traveller_routes import router as traveller_router
 from routes.room_routes import router as room_router
+from routes.profile_routes import router as profile_router
+from routes.consent_routes import router as consent_router
 
 setup_logging()
 
@@ -27,6 +29,8 @@ app = FastAPI(title=APP_TITLE, version=APP_VERSION)
 app.include_router(trip_router)
 app.include_router(traveller_router)
 app.include_router(room_router)
+app.include_router(profile_router)
+app.include_router(consent_router)
 
 app.add_middleware(
     CORSMiddleware,
