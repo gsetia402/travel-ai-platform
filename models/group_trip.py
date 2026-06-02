@@ -191,6 +191,7 @@ class TripSummaryResponse(BaseModel):
     total_budget: float = 0
     amount_spent: float = 0
     remaining_budget: float = 0
+    registration_link_active: bool = False
 
 
 # --- Risk Summary ---

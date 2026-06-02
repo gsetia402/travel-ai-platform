@@ -23,6 +23,7 @@ from routes.profile_routes import router as profile_router
 from routes.consent_routes import router as consent_router
 from routes.expense_routes import router as expense_router
 from routes.communication_routes import router as communication_router
+from routes.registration_routes import router as registration_router
 
 setup_logging()
 
@@ -35,6 +36,7 @@ app.include_router(profile_router)
 app.include_router(consent_router)
 app.include_router(expense_router)
 app.include_router(communication_router)
+app.include_router(registration_router)
 
 app.add_middleware(
     CORSMiddleware,
