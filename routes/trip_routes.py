@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models.group_trip import (
     TripCreateRequest,
+    TripUpdateRequest,
     TripResponse,
     TripSummaryResponse,
     RiskSummaryResponse,
@@ -14,6 +15,7 @@ from services.trip_service import (
     create_new_trip,
     list_trips,
     get_trip,
+    update_existing_trip,
     remove_trip,
     get_trip_summary,
     get_risk_summary,
@@ -39,6 +41,14 @@ def get_all_trips(db: Session = Depends(get_db)):
 def get_trip_by_id(trip_id: str, db: Session = Depends(get_db)):
     try:
         return get_trip(db, trip_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.put("/trips/{trip_id}", response_model=TripResponse)
+def update_trip(trip_id: str, request: TripUpdateRequest, db: Session = Depends(get_db)):
+    try:
+        return update_existing_trip(db, trip_id, request)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 

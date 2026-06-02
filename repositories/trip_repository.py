@@ -4,7 +4,7 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
-from models.group_trip import TripTable, TripCreateRequest
+from models.group_trip import TripTable, TripCreateRequest, TripUpdateRequest
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +34,18 @@ def get_all_trips(db: Session) -> List[TripTable]:
 
 def get_trip_by_id(db: Session, trip_id: str) -> Optional[TripTable]:
     return db.query(TripTable).filter(TripTable.trip_id == trip_id).first()
+
+
+def update_trip(db: Session, trip_id: str, request: TripUpdateRequest) -> Optional[TripTable]:
+    trip = get_trip_by_id(db, trip_id)
+    if not trip:
+        return None
+    for field, value in request.model_dump(exclude_unset=True).items():
+        setattr(trip, field, value)
+    db.commit()
+    db.refresh(trip)
+    logger.info(f"Updated trip: {trip_id}")
+    return trip
 
 
 def delete_trip(db: Session, trip_id: str) -> bool:

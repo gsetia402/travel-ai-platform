@@ -76,6 +76,16 @@ class TripCreateRequest(BaseModel):
     budget: float = Field(gt=0)
 
 
+class TripUpdateRequest(BaseModel):
+    trip_name: Optional[str] = None
+    destination: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    days: Optional[int] = None
+    traveller_count: Optional[int] = None
+    budget: Optional[float] = None
+
+
 class TripResponse(BaseModel):
     trip_id: str
     trip_name: str

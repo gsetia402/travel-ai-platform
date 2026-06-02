@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from models.group_trip import (
     TripCreateRequest,
+    TripUpdateRequest,
     TripResponse,
     TripSummaryResponse,
     RiskSummaryResponse,
@@ -13,6 +14,7 @@ from repositories.trip_repository import (
     create_trip,
     get_all_trips,
     get_trip_by_id,
+    update_trip as repo_update_trip,
     delete_trip,
 )
 from repositories.traveller_repository import (
@@ -42,6 +44,13 @@ def list_trips(db: Session) -> List[TripResponse]:
 
 def get_trip(db: Session, trip_id: str) -> TripResponse:
     trip = get_trip_by_id(db, trip_id)
+    if not trip:
+        raise ValueError(f"Trip not found: {trip_id}")
+    return TripResponse.model_validate(trip)
+
+
+def update_existing_trip(db: Session, trip_id: str, request: TripUpdateRequest) -> TripResponse:
+    trip = repo_update_trip(db, trip_id, request)
     if not trip:
         raise ValueError(f"Trip not found: {trip_id}")
     return TripResponse.model_validate(trip)
