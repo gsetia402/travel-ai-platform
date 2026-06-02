@@ -121,3 +121,5 @@ class TripSummaryResponse(BaseModel):
     budget: float
     registered_travellers: int
     pending_travellers: int
+    rooms_allocated: int = 0
+    unallocated_travellers: int = 0

@@ -15,6 +15,7 @@ from repositories.trip_repository import (
     delete_trip,
 )
 from repositories.traveller_repository import count_travellers_by_trip
+from repositories.room_repository import count_rooms_by_trip, count_allocated_travellers_by_trip
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,9 @@ def get_trip_summary(db: Session, trip_id: str) -> TripSummaryResponse:
 
     registered = count_travellers_by_trip(db, trip_id)
     pending = max(0, trip.traveller_count - registered)
+    rooms_allocated = count_rooms_by_trip(db, trip_id)
+    allocated_travellers = count_allocated_travellers_by_trip(db, trip_id)
+    unallocated = max(0, registered - allocated_travellers)
 
     return TripSummaryResponse(
         trip_name=trip.trip_name,
@@ -58,4 +62,6 @@ def get_trip_summary(db: Session, trip_id: str) -> TripSummaryResponse:
         budget=trip.budget,
         registered_travellers=registered,
         pending_travellers=pending,
+        rooms_allocated=rooms_allocated,
+        unallocated_travellers=unallocated,
     )
