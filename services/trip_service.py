@@ -23,6 +23,7 @@ from repositories.traveller_repository import (
 )
 from repositories.room_repository import count_rooms_by_trip, count_allocated_travellers_by_trip
 from repositories.consent_repository import count_consents_by_trip_and_status
+from repositories.expense_repository import sum_expenses_by_trip
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +81,9 @@ def get_trip_summary(db: Session, trip_id: str) -> TripSummaryResponse:
         pending_confirmations=invited,
         pending_consents=pending_consents,
         approved_consents=approved_consents,
+        total_budget=trip.budget,
+        amount_spent=sum_expenses_by_trip(db, trip_id),
+        remaining_budget=trip.budget - sum_expenses_by_trip(db, trip_id),
     )
 
 

@@ -188,6 +188,9 @@ class TripSummaryResponse(BaseModel):
     pending_confirmations: int = 0
     pending_consents: int = 0
     approved_consents: int = 0
+    total_budget: float = 0
+    amount_spent: float = 0
+    remaining_budget: float = 0
 
 
 # --- Risk Summary ---
