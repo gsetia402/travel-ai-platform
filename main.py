@@ -16,10 +16,15 @@ from models.recommendation import RecommendationRequest, RecommendationResponse
 from services.recommendation_service import get_recommendations
 from models.budget import BudgetRequest, BudgetResponse
 from services.budget_service import estimate_budget
+from routes.trip_routes import router as trip_router
+from routes.traveller_routes import router as traveller_router
 
 setup_logging()
 
 app = FastAPI(title=APP_TITLE, version=APP_VERSION)
+
+app.include_router(trip_router)
+app.include_router(traveller_router)
 
 app.add_middleware(
     CORSMiddleware,
