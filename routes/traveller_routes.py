@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models.group_trip import (
+    TripTable,
     TravellerCreateRequest,
     TravellerResponse,
     CSVUploadResponse,
@@ -15,12 +16,13 @@ from services.traveller_service import (
     remove_traveller,
     upload_travellers_csv,
 )
+from dependencies import require_trip_access
 
 router = APIRouter(tags=["Travellers"])
 
 
 @router.post("/trips/{trip_id}/travellers", response_model=TravellerResponse, status_code=201)
-def add_traveller(trip_id: str, request: TravellerCreateRequest, db: Session = Depends(get_db)):
+def add_traveller(trip_id: str, request: TravellerCreateRequest, db: Session = Depends(get_db), trip: TripTable = Depends(require_trip_access)):
     try:
         return create_traveller(db, trip_id, request)
     except ValueError as e:
@@ -28,7 +30,7 @@ def add_traveller(trip_id: str, request: TravellerCreateRequest, db: Session = D
 
 
 @router.get("/trips/{trip_id}/travellers", response_model=List[TravellerResponse])
-def get_travellers(trip_id: str, db: Session = Depends(get_db)):
+def get_travellers(trip_id: str, db: Session = Depends(get_db), trip: TripTable = Depends(require_trip_access)):
     try:
         return list_travellers(db, trip_id)
     except ValueError as e:
@@ -45,7 +47,7 @@ def delete_traveller(traveller_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/trips/{trip_id}/travellers/upload", response_model=CSVUploadResponse)
-async def upload_csv(trip_id: str, file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def upload_csv(trip_id: str, file: UploadFile = File(...), db: Session = Depends(get_db), trip: TripTable = Depends(require_trip_access)):
     if not file.filename or not file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="Only CSV files are accepted.")
 

@@ -9,11 +9,12 @@ from models.group_trip import TripTable, TripCreateRequest, TripUpdateRequest
 logger = logging.getLogger(__name__)
 
 
-def create_trip(db: Session, request: TripCreateRequest) -> TripTable:
+def create_trip(db: Session, request: TripCreateRequest, organization_id: str = None) -> TripTable:
     trip = TripTable(
         trip_id=str(uuid.uuid4()),
         trip_name=request.trip_name,
         organization_name=request.organization_name,
+        organization_id=organization_id,
         destination=request.destination,
         start_date=request.start_date,
         end_date=request.end_date,
@@ -24,12 +25,16 @@ def create_trip(db: Session, request: TripCreateRequest) -> TripTable:
     db.add(trip)
     db.commit()
     db.refresh(trip)
-    logger.info(f"Created trip: {trip.trip_id} — {trip.trip_name}")
+    logger.info(f"Created trip: {trip.trip_id} — {trip.trip_name} (org: {organization_id})")
     return trip
 
 
-def get_all_trips(db: Session) -> List[TripTable]:
-    return db.query(TripTable).order_by(TripTable.created_at.desc()).all()
+def get_all_trips(db: Session, organization_id: str = None) -> List[TripTable]:
+    query = db.query(TripTable)
+    if organization_id:
+        from sqlalchemy import or_
+        query = query.filter(or_(TripTable.organization_id == organization_id, TripTable.organization_id.is_(None)))
+    return query.order_by(TripTable.created_at.desc()).all()
 
 
 def get_trip_by_id(db: Session, trip_id: str) -> Optional[TripTable]:

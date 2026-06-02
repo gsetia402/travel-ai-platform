@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import get_db
+from models.auth import UserTable
+from models.group_trip import TripTable
 from models.expense import (
     ExpenseCreateRequest,
     ExpenseUpdateRequest,
@@ -21,12 +23,14 @@ from services.expense_service import (
     get_expense_breakdown,
     get_budget_status,
 )
+from services.auth_service import get_current_user
+from dependencies import require_trip_access
 
 router = APIRouter(tags=["Expenses"])
 
 
 @router.post("/trips/{trip_id}/expenses", response_model=ExpenseResponse, status_code=201)
-def create_expense(trip_id: str, request: ExpenseCreateRequest, db: Session = Depends(get_db)):
+def create_expense(trip_id: str, request: ExpenseCreateRequest, db: Session = Depends(get_db), trip: TripTable = Depends(require_trip_access)):
     try:
         return add_expense(db, trip_id, request)
     except ValueError as e:
@@ -34,7 +38,7 @@ def create_expense(trip_id: str, request: ExpenseCreateRequest, db: Session = De
 
 
 @router.get("/trips/{trip_id}/expenses", response_model=List[ExpenseResponse])
-def get_expenses(trip_id: str, db: Session = Depends(get_db)):
+def get_expenses(trip_id: str, db: Session = Depends(get_db), trip: TripTable = Depends(require_trip_access)):
     try:
         return list_expenses(db, trip_id)
     except ValueError as e:
@@ -42,7 +46,7 @@ def get_expenses(trip_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/expenses/{expense_id}", response_model=ExpenseResponse)
-def get_expense_detail(expense_id: str, db: Session = Depends(get_db)):
+def get_expense_detail(expense_id: str, db: Session = Depends(get_db), user: UserTable = Depends(get_current_user)):
     try:
         return get_expense(db, expense_id)
     except ValueError as e:
@@ -50,7 +54,7 @@ def get_expense_detail(expense_id: str, db: Session = Depends(get_db)):
 
 
 @router.put("/expenses/{expense_id}", response_model=ExpenseResponse)
-def update_expense(expense_id: str, request: ExpenseUpdateRequest, db: Session = Depends(get_db)):
+def update_expense(expense_id: str, request: ExpenseUpdateRequest, db: Session = Depends(get_db), user: UserTable = Depends(get_current_user)):
     try:
         return modify_expense(db, expense_id, request)
     except ValueError as e:
@@ -58,7 +62,7 @@ def update_expense(expense_id: str, request: ExpenseUpdateRequest, db: Session =
 
 
 @router.delete("/expenses/{expense_id}", status_code=200)
-def delete_expense(expense_id: str, db: Session = Depends(get_db)):
+def delete_expense(expense_id: str, db: Session = Depends(get_db), user: UserTable = Depends(get_current_user)):
     try:
         remove_expense(db, expense_id)
         return {"message": f"Expense {expense_id} deleted successfully"}
@@ -67,7 +71,7 @@ def delete_expense(expense_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/trips/{trip_id}/financial-summary", response_model=FinancialSummaryResponse)
-def financial_summary(trip_id: str, db: Session = Depends(get_db)):
+def financial_summary(trip_id: str, db: Session = Depends(get_db), trip: TripTable = Depends(require_trip_access)):
     try:
         return get_financial_summary(db, trip_id)
     except ValueError as e:
@@ -75,7 +79,7 @@ def financial_summary(trip_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/trips/{trip_id}/expense-breakdown", response_model=Dict[str, float])
-def expense_breakdown(trip_id: str, db: Session = Depends(get_db)):
+def expense_breakdown(trip_id: str, db: Session = Depends(get_db), trip: TripTable = Depends(require_trip_access)):
     try:
         return get_expense_breakdown(db, trip_id)
     except ValueError as e:
@@ -83,7 +87,7 @@ def expense_breakdown(trip_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/trips/{trip_id}/budget-status", response_model=BudgetStatusResponse)
-def budget_status(trip_id: str, db: Session = Depends(get_db)):
+def budget_status(trip_id: str, db: Session = Depends(get_db), trip: TripTable = Depends(require_trip_access)):
     try:
         return get_budget_status(db, trip_id)
     except ValueError as e:

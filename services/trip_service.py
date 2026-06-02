@@ -32,13 +32,13 @@ from services.document_service import calculate_trip_readiness_percentage
 logger = logging.getLogger(__name__)
 
 
-def create_new_trip(db: Session, request: TripCreateRequest) -> TripResponse:
-    trip = create_trip(db, request)
+def create_new_trip(db: Session, request: TripCreateRequest, organization_id: str = None) -> TripResponse:
+    trip = create_trip(db, request, organization_id=organization_id)
     return TripResponse.model_validate(trip)
 
 
-def list_trips(db: Session) -> List[TripResponse]:
-    trips = get_all_trips(db)
+def list_trips(db: Session, organization_id: str = None) -> List[TripResponse]:
+    trips = get_all_trips(db, organization_id=organization_id)
     return [TripResponse.model_validate(t) for t in trips]
 
 
