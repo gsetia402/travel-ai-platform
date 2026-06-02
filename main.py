@@ -26,6 +26,7 @@ from routes.communication_routes import router as communication_router
 from routes.registration_routes import router as registration_router
 from routes.document_routes import router as document_router
 from routes.auth_routes import router as auth_router
+from routes.itinerary_routes import router as itinerary_router
 
 setup_logging()
 
@@ -41,6 +42,7 @@ app.include_router(communication_router)
 app.include_router(registration_router)
 app.include_router(document_router)
 app.include_router(auth_router)
+app.include_router(itinerary_router)
 
 app.add_middleware(
     CORSMiddleware,
