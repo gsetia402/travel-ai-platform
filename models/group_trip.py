@@ -18,6 +18,7 @@ class TripTable(Base):
     trip_id = Column(String, primary_key=True, index=True)
     trip_name = Column(String, nullable=False)
     organization_name = Column(String, nullable=False)
+    organization_id = Column(String, nullable=True, index=True)
     destination = Column(String, nullable=False)
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=False)

@@ -25,6 +25,7 @@ from routes.expense_routes import router as expense_router
 from routes.communication_routes import router as communication_router
 from routes.registration_routes import router as registration_router
 from routes.document_routes import router as document_router
+from routes.auth_routes import router as auth_router
 
 setup_logging()
 
@@ -39,6 +40,7 @@ app.include_router(expense_router)
 app.include_router(communication_router)
 app.include_router(registration_router)
 app.include_router(document_router)
+app.include_router(auth_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -52,6 +54,13 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup():
     create_tables()
+    from services.auth_service import seed_demo_data
+    from database import SessionLocal
+    db = SessionLocal()
+    try:
+        seed_demo_data(db)
+    finally:
+        db.close()
 
 
 @app.get("/")
