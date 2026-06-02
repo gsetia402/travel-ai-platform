@@ -192,6 +192,7 @@ class TripSummaryResponse(BaseModel):
     amount_spent: float = 0
     remaining_budget: float = 0
     registration_link_active: bool = False
+    trip_ready_percentage: float = 0
 
 
 # --- Risk Summary ---

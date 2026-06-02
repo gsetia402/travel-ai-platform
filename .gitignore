@@ -36,3 +36,4 @@ logs/
 *.tar.gz
 *.whl
 
+uploads/

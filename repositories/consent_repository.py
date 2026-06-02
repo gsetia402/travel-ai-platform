@@ -57,6 +57,14 @@ def count_consents_by_trip_and_status(db: Session, trip_id: str, status: str) ->
     )
 
 
+def count_consents_by_traveller_and_status(db: Session, traveller_id: str, status: str) -> int:
+    return (
+        db.query(ConsentTable)
+        .filter(ConsentTable.traveller_id == traveller_id, ConsentTable.status == status)
+        .count()
+    )
+
+
 def count_consents_by_trip(db: Session, trip_id: str) -> int:
     from models.group_trip import TravellerTable
     return (
