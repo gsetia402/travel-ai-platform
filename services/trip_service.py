@@ -81,6 +81,7 @@ def get_trip_summary(db: Session, trip_id: str) -> TripSummaryResponse:
 
     return TripSummaryResponse(
         trip_name=trip.trip_name,
+        origin_city=trip.origin_city,
         destination=trip.destination,
         traveller_count=trip.traveller_count,
         budget=trip.budget,

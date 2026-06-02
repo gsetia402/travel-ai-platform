@@ -24,6 +24,7 @@ from repositories.document_repository import (
     count_uploaded_by_trip,
     count_verified_by_trip,
     count_pending_by_trip,
+    count_rejected_by_trip,
     get_uploaded_types_for_traveller,
 )
 from repositories.trip_repository import get_trip_by_id
@@ -132,6 +133,7 @@ def get_document_summary(db: Session, trip_id: str) -> DocumentSummaryResponse:
     uploaded = count_uploaded_by_trip(db, trip_id)
     verified = count_verified_by_trip(db, trip_id)
     pending = count_pending_by_trip(db, trip_id)
+    rejected = count_rejected_by_trip(db, trip_id)
     missing = max(0, required_total - uploaded)
 
     return DocumentSummaryResponse(
@@ -139,6 +141,7 @@ def get_document_summary(db: Session, trip_id: str) -> DocumentSummaryResponse:
         uploaded_documents=uploaded,
         verified_documents=verified,
         pending_documents=pending,
+        rejected_documents=rejected,
         missing_documents=missing,
     )
 

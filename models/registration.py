@@ -100,6 +100,7 @@ class FormConfigResponse(BaseModel):
 
 class PublicTripInfoResponse(BaseModel):
     trip_name: str
+    origin_city: Optional[str] = None
     destination: str
     start_date: date
     end_date: date

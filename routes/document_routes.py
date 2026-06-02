@@ -75,6 +75,50 @@ def reject_document(document_id: str, request: VerifyRequest = VerifyRequest(), 
         raise HTTPException(status_code=404, detail=str(e))
 
 
+@router.delete("/documents/{document_id}", status_code=200)
+def delete_document(document_id: str, db: Session = Depends(get_db), user: UserTable = Depends(get_current_user)):
+    from models.document import TravellerDocumentTable
+    doc = db.query(TravellerDocumentTable).filter(TravellerDocumentTable.document_id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    db.delete(doc)
+    db.commit()
+    return {"message": "Document deleted"}
+
+
+@router.get("/documents/{document_id}/download")
+def download_document(document_id: str, token: str = None, db: Session = Depends(get_db)):
+    """Download a document file. Auth via ?token= query param (for img/iframe preview) or unauthenticated by UUID."""
+    from models.document import TravellerDocumentTable
+    from fastapi.responses import Response
+    import os
+
+    if token:
+        from services.auth_service import decode_token
+        try:
+            decode_token(token)
+        except Exception:
+            raise HTTPException(status_code=401, detail="Invalid token")
+
+    doc = db.query(TravellerDocumentTable).filter(TravellerDocumentTable.document_id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    if not os.path.exists(doc.file_path):
+        raise HTTPException(status_code=404, detail="File not found on disk")
+    with open(doc.file_path, "rb") as f:
+        content = f.read()
+    content_type = "application/octet-stream"
+    ext = doc.file_name.lower().rsplit(".", 1)[-1] if "." in doc.file_name else ""
+    if ext == "pdf":
+        content_type = "application/pdf"
+    elif ext in ("jpg", "jpeg"):
+        content_type = "image/jpeg"
+    elif ext == "png":
+        content_type = "image/png"
+    safe_name = doc.file_name.encode("ascii", "ignore").decode("ascii").replace('"', '') or "document"
+    return Response(content=content, media_type=content_type, headers={"Content-Disposition": f'inline; filename="{safe_name}"'})
+
+
 # --- Requirements ---
 
 @router.post("/trips/{trip_id}/document-requirements", response_model=RequirementResponse, status_code=201)
@@ -91,6 +135,30 @@ def get_requirements(trip_id: str, db: Session = Depends(get_db), trip: TripTabl
         return list_trip_requirements(db, trip_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.delete("/document-requirements/{requirement_id}", status_code=200)
+def delete_requirement(requirement_id: str, db: Session = Depends(get_db), user: UserTable = Depends(get_current_user)):
+    from models.document import TripDocumentRequirementTable
+    req = db.query(TripDocumentRequirementTable).filter(TripDocumentRequirementTable.requirement_id == requirement_id).first()
+    if not req:
+        raise HTTPException(status_code=404, detail="Requirement not found")
+    db.delete(req)
+    db.commit()
+    return {"message": "Requirement deleted"}
+
+
+@router.put("/document-requirements/{requirement_id}", response_model=RequirementResponse)
+def update_requirement(requirement_id: str, request: RequirementCreateRequest, db: Session = Depends(get_db), user: UserTable = Depends(get_current_user)):
+    from models.document import TripDocumentRequirementTable
+    req = db.query(TripDocumentRequirementTable).filter(TripDocumentRequirementTable.requirement_id == requirement_id).first()
+    if not req:
+        raise HTTPException(status_code=404, detail="Requirement not found")
+    req.document_type = request.document_type.value
+    req.mandatory = request.mandatory
+    db.commit()
+    db.refresh(req)
+    return RequirementResponse.model_validate(req)
 
 
 # --- Summaries ---

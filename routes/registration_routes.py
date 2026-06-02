@@ -1,6 +1,6 @@
-from typing import List
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -101,6 +101,37 @@ def register_traveller(registration_code: str, request: SelfRegisterRequest, db:
         raise HTTPException(status_code=409, detail=str(e))
     except LinkInactiveError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+# --- Public Document Upload (during registration) ---
+
+@router.post("/register/{registration_code}/documents/{traveller_id}", status_code=201)
+async def upload_registration_document(
+    registration_code: str,
+    traveller_id: str,
+    document_type: str = Form(...),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    """Upload a document during public registration. Document is auto-verified."""
+    from repositories.registration_repository import get_link_by_code
+    from services.registration_service import _validate_link, LinkInactiveError
+    from services.document_service import upload_document
+
+    link = get_link_by_code(db, registration_code)
+    if not link:
+        raise HTTPException(status_code=404, detail="Registration link not found")
+    try:
+        _validate_link(link)
+    except LinkInactiveError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    try:
+        content = await file.read()
+        doc = upload_document(db, traveller_id, document_type, file.filename, content)
+        return {"document_id": doc.document_id, "status": doc.verification_status, "file_name": doc.file_name}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 

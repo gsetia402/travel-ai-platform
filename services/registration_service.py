@@ -158,6 +158,7 @@ def get_public_trip_info(db: Session, code: str) -> PublicTripInfoResponse:
 
     return PublicTripInfoResponse(
         trip_name=trip.trip_name,
+        origin_city=trip.origin_city,
         destination=trip.destination,
         start_date=trip.start_date,
         end_date=trip.end_date,

@@ -81,6 +81,11 @@ def list_rooms(db: Session, trip_id: str) -> List[RoomResponse]:
                 occupants.append(OccupantInfo(
                     traveller_id=traveller.traveller_id,
                     name=f"{traveller.first_name} {traveller.last_name}",
+                    first_name=traveller.first_name,
+                    last_name=traveller.last_name,
+                    gender=traveller.gender,
+                    phone=traveller.phone,
+                    email=traveller.email,
                 ))
 
         result.append(RoomResponse(
@@ -108,6 +113,11 @@ def get_room_detail(db: Session, room_id: str) -> RoomDetailResponse:
             occupants.append(OccupantInfo(
                 traveller_id=traveller.traveller_id,
                 name=f"{traveller.first_name} {traveller.last_name}",
+                first_name=traveller.first_name,
+                last_name=traveller.last_name,
+                gender=traveller.gender,
+                phone=traveller.phone,
+                email=traveller.email,
             ))
 
     return RoomDetailResponse(

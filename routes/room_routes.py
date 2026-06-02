@@ -70,3 +70,13 @@ def move_traveller(room_id: str, traveller_id: str, db: Session = Depends(get_db
         raise HTTPException(status_code=404, detail=str(e))
     except CapacityExceededError as e:
         raise HTTPException(status_code=409, detail=str(e))
+
+
+@router.delete("/rooms/{room_id}/travellers/{traveller_id}", status_code=200)
+def remove_traveller_from_room(room_id: str, traveller_id: str, db: Session = Depends(get_db), user: UserTable = Depends(get_current_user)):
+    from repositories.room_repository import delete_allocation_by_traveller
+    deleted = delete_allocation_by_traveller(db, traveller_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Allocation not found")
+    db.commit()
+    return {"message": f"Traveller {traveller_id} removed from room {room_id}"}

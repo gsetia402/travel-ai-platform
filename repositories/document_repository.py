@@ -24,7 +24,7 @@ def create_document(db: Session, traveller_id: str, document_type: str, file_nam
         file_name=file_name,
         file_path=file_path,
         upload_status="COMPLETED",
-        verification_status=VerificationStatus.PENDING.value,
+        verification_status=VerificationStatus.UPLOADED.value,
     )
     db.add(doc)
     db.commit()
@@ -115,11 +115,12 @@ def count_uploaded_by_trip(db: Session, trip_id: str) -> int:
 
 
 def count_verified_by_trip(db: Session, trip_id: str) -> int:
+    """Count documents that are NOT rejected (UPLOADED, VERIFIED, or any non-rejected status count as OK)."""
     from models.group_trip import TravellerTable
     return (
         db.query(TravellerDocumentTable)
         .join(TravellerTable, TravellerDocumentTable.traveller_id == TravellerTable.traveller_id)
-        .filter(TravellerTable.trip_id == trip_id, TravellerDocumentTable.verification_status == VerificationStatus.VERIFIED.value)
+        .filter(TravellerTable.trip_id == trip_id, TravellerDocumentTable.verification_status != VerificationStatus.REJECTED.value)
         .count()
     )
 
@@ -134,10 +135,24 @@ def count_pending_by_trip(db: Session, trip_id: str) -> int:
     )
 
 
+def count_rejected_by_trip(db: Session, trip_id: str) -> int:
+    from models.group_trip import TravellerTable
+    return (
+        db.query(TravellerDocumentTable)
+        .join(TravellerTable, TravellerDocumentTable.traveller_id == TravellerTable.traveller_id)
+        .filter(TravellerTable.trip_id == trip_id, TravellerDocumentTable.verification_status == VerificationStatus.REJECTED.value)
+        .count()
+    )
+
+
 def get_uploaded_types_for_traveller(db: Session, traveller_id: str) -> List[str]:
+    """Return document types that have at least one non-REJECTED upload."""
     rows = (
         db.query(TravellerDocumentTable.document_type)
-        .filter(TravellerDocumentTable.traveller_id == traveller_id)
+        .filter(
+            TravellerDocumentTable.traveller_id == traveller_id,
+            TravellerDocumentTable.verification_status != VerificationStatus.REJECTED.value,
+        )
         .distinct()
         .all()
     )

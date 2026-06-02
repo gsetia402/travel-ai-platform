@@ -4,18 +4,23 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 
 from database import get_db
+from models.auth import UserTable
 from models.group_trip import (
     TripTable,
     TravellerCreateRequest,
+    TravellerUpdateRequest,
     TravellerResponse,
     CSVUploadResponse,
 )
 from services.traveller_service import (
     create_traveller,
     list_travellers,
+    get_single_traveller,
+    update_traveller,
     remove_traveller,
     upload_travellers_csv,
 )
+from services.auth_service import get_current_user
 from dependencies import require_trip_access
 
 router = APIRouter(tags=["Travellers"])
@@ -37,8 +42,24 @@ def get_travellers(trip_id: str, db: Session = Depends(get_db), trip: TripTable 
         raise HTTPException(status_code=404, detail=str(e))
 
 
+@router.get("/travellers/{traveller_id}", response_model=TravellerResponse)
+def get_traveller(traveller_id: str, db: Session = Depends(get_db), user: UserTable = Depends(get_current_user)):
+    try:
+        return get_single_traveller(db, traveller_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.put("/travellers/{traveller_id}", response_model=TravellerResponse)
+def edit_traveller(traveller_id: str, request: TravellerUpdateRequest, db: Session = Depends(get_db), user: UserTable = Depends(get_current_user)):
+    try:
+        return update_traveller(db, traveller_id, request)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
 @router.delete("/travellers/{traveller_id}", status_code=200)
-def delete_traveller(traveller_id: str, db: Session = Depends(get_db)):
+def delete_traveller(traveller_id: str, db: Session = Depends(get_db), user: UserTable = Depends(get_current_user)):
     try:
         remove_traveller(db, traveller_id)
         return {"message": f"Traveller {traveller_id} deleted successfully"}

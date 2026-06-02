@@ -19,12 +19,15 @@ class TripTable(Base):
     trip_name = Column(String, nullable=False)
     organization_name = Column(String, nullable=False)
     organization_id = Column(String, nullable=True, index=True)
+    origin_city = Column(String, nullable=True)
+    origin_state = Column(String, nullable=True)
     destination = Column(String, nullable=False)
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=False)
     days = Column(Integer, nullable=False)
     traveller_count = Column(Integer, nullable=False)
     budget = Column(Float, nullable=False)
+    status = Column(String, nullable=False, default="DRAFT")
     created_at = Column(DateTime, server_default=func.now())
 
     travellers = relationship("TravellerTable", back_populates="trip", cascade="all, delete-orphan")
@@ -68,6 +71,8 @@ class TravellerTable(Base):
 class TripCreateRequest(BaseModel):
     trip_name: str
     organization_name: str
+    origin_city: str = ""
+    origin_state: Optional[str] = None
     destination: str
     start_date: date
     end_date: date
@@ -78,24 +83,30 @@ class TripCreateRequest(BaseModel):
 
 class TripUpdateRequest(BaseModel):
     trip_name: Optional[str] = None
+    origin_city: Optional[str] = None
+    origin_state: Optional[str] = None
     destination: Optional[str] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     days: Optional[int] = None
     traveller_count: Optional[int] = None
     budget: Optional[float] = None
+    status: Optional[str] = None
 
 
 class TripResponse(BaseModel):
     trip_id: str
     trip_name: str
     organization_name: str
+    origin_city: Optional[str] = None
+    origin_state: Optional[str] = None
     destination: str
     start_date: date
     end_date: date
     days: int
     traveller_count: int
     budget: float
+    status: str = "DRAFT"
     created_at: Optional[datetime] = None
 
     class Config:
@@ -188,6 +199,7 @@ class CSVUploadResponse(BaseModel):
 
 class TripSummaryResponse(BaseModel):
     trip_name: str
+    origin_city: Optional[str] = None
     destination: str
     traveller_count: int
     budget: float

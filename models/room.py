@@ -65,7 +65,8 @@ class RoomAllocationTable(Base):
 # --------------- Pydantic Request / Response Models ---------------
 
 class RoomAllocateRequest(BaseModel):
-    room_type: RoomType
+    room_type: RoomType = RoomType.DOUBLE
+    capacity: Optional[int] = None
     strategy: AllocationStrategy = AllocationStrategy.SAME_GENDER
 
 
@@ -77,6 +78,11 @@ class RoomAllocateResponse(BaseModel):
 class OccupantInfo(BaseModel):
     traveller_id: str
     name: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    gender: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
 
 
 class RoomResponse(BaseModel):

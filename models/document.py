@@ -24,9 +24,11 @@ class DocumentType(str, enum.Enum):
 
 
 class VerificationStatus(str, enum.Enum):
+    UPLOADED = "UPLOADED"
+    REJECTED = "REJECTED"
+    # Legacy aliases kept for backward compat
     PENDING = "PENDING"
     VERIFIED = "VERIFIED"
-    REJECTED = "REJECTED"
 
 
 # --------------- SQLAlchemy ORM Models ---------------
@@ -40,7 +42,7 @@ class TravellerDocumentTable(Base):
     file_name = Column(String, nullable=False)
     file_path = Column(String, nullable=False)
     upload_status = Column(String, nullable=False, default="COMPLETED")
-    verification_status = Column(String, nullable=False, default="PENDING")
+    verification_status = Column(String, nullable=False, default="UPLOADED")
     uploaded_at = Column(DateTime, server_default=func.now())
     verified_at = Column(DateTime, nullable=True)
     verified_by = Column(String, nullable=True)
@@ -99,7 +101,8 @@ class DocumentSummaryResponse(BaseModel):
     required_documents: int
     uploaded_documents: int
     verified_documents: int
-    pending_documents: int
+    pending_documents: int = 0
+    rejected_documents: int = 0
     missing_documents: int
 
 

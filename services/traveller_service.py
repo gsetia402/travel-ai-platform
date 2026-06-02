@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from models.group_trip import (
     TravellerCreateRequest,
+    TravellerUpdateRequest,
     TravellerResponse,
     CSVUploadResponse,
 )
@@ -14,6 +15,8 @@ from repositories.traveller_repository import (
     add_traveller,
     add_travellers_bulk,
     get_travellers_by_trip,
+    get_traveller_by_id,
+    update_traveller as repo_update_traveller,
     delete_traveller,
 )
 from repositories.trip_repository import get_trip_by_id
@@ -40,6 +43,20 @@ def list_travellers(db: Session, trip_id: str) -> List[TravellerResponse]:
 
     travellers = get_travellers_by_trip(db, trip_id)
     return [TravellerResponse.model_validate(t) for t in travellers]
+
+
+def get_single_traveller(db: Session, traveller_id: str) -> TravellerResponse:
+    traveller = get_traveller_by_id(db, traveller_id)
+    if not traveller:
+        raise ValueError(f"Traveller not found: {traveller_id}")
+    return TravellerResponse.model_validate(traveller)
+
+
+def update_traveller(db: Session, traveller_id: str, request: TravellerUpdateRequest) -> TravellerResponse:
+    traveller = repo_update_traveller(db, traveller_id, request)
+    if not traveller:
+        raise ValueError(f"Traveller not found: {traveller_id}")
+    return TravellerResponse.model_validate(traveller)
 
 
 def remove_traveller(db: Session, traveller_id: str) -> bool:

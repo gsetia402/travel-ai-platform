@@ -1,6 +1,7 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -77,3 +78,32 @@ def risk_summary(trip_id: str, db: Session = Depends(get_db), trip: TripTable = 
         return get_risk_summary(db, trip_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+VALID_TRANSITIONS = {
+    "DRAFT": ["REGISTRATION_OPEN", "CANCELLED"],
+    "REGISTRATION_OPEN": ["REGISTRATION_CLOSED", "CANCELLED"],
+    "REGISTRATION_CLOSED": ["PLANNING", "REGISTRATION_OPEN", "CANCELLED"],
+    "PLANNING": ["READY_TO_DEPART", "CANCELLED"],
+    "READY_TO_DEPART": ["IN_PROGRESS", "CANCELLED"],
+    "IN_PROGRESS": ["COMPLETED", "CANCELLED"],
+    "COMPLETED": [],
+    "CANCELLED": ["DRAFT"],
+}
+
+
+class StatusChangeRequest(BaseModel):
+    status: str
+
+
+@router.put("/trips/{trip_id}/status")
+def change_trip_status(trip_id: str, request: StatusChangeRequest, db: Session = Depends(get_db), trip: TripTable = Depends(require_trip_access)):
+    current = trip.status or "DRAFT"
+    target = request.status
+    allowed = VALID_TRANSITIONS.get(current, [])
+    if target not in allowed:
+        raise HTTPException(status_code=400, detail=f"Cannot transition from {current} to {target}. Allowed: {allowed}")
+    trip.status = target
+    db.commit()
+    db.refresh(trip)
+    return TripResponse.model_validate(trip)
