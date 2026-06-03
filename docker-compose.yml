@@ -10,6 +10,8 @@ services:
       - .env
     environment:
       - APP_ENV=production
+      # Set DATABASE_URL here or in .env for PostgreSQL
+      # - DATABASE_URL=postgresql://user:pass@host:5432/tripops
     volumes:
-      - ./travel_memory.db:/app/travel_memory.db
+      - ./uploads:/app/uploads
     restart: unless-stopped

@@ -27,7 +27,7 @@ class TripTable(Base):
     days = Column(Integer, nullable=False)
     traveller_count = Column(Integer, nullable=False)
     budget = Column(Float, nullable=False)
-    status = Column(String, nullable=False, default="DRAFT")
+    status = Column(String, nullable=False, default="DRAFT", index=True)
     created_at = Column(DateTime, server_default=func.now())
 
     travellers = relationship("TravellerTable", back_populates="trip", cascade="all, delete-orphan")
@@ -40,8 +40,8 @@ class TravellerTable(Base):
     trip_id = Column(String, ForeignKey("trips.trip_id", ondelete="CASCADE"), nullable=False, index=True)
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
-    phone = Column(String, nullable=False)
-    email = Column(String, nullable=False)
+    phone = Column(String, nullable=False, index=True)
+    email = Column(String, nullable=False, index=True)
     gender = Column(String, nullable=True)
     department = Column(String, nullable=True)
     city = Column(String, nullable=True)
@@ -58,7 +58,7 @@ class TravellerTable(Base):
     dietary_preferences = Column(String, nullable=True)
     passport_number = Column(String, nullable=True)
     nationality = Column(String, nullable=True)
-    participation_status = Column(String, nullable=True, default="INVITED")
+    participation_status = Column(String, nullable=True, default="INVITED", index=True)
 
     trip = relationship("TripTable", back_populates="travellers")
     consents = relationship("ConsentTable", back_populates="traveller", cascade="all, delete-orphan")

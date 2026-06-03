@@ -38,7 +38,7 @@ class TravellerDocumentTable(Base):
 
     document_id = Column(String, primary_key=True, index=True)
     traveller_id = Column(String, ForeignKey("travellers.traveller_id", ondelete="CASCADE"), nullable=False, index=True)
-    document_type = Column(String, nullable=False)
+    document_type = Column(String, nullable=False, index=True)
     file_name = Column(String, nullable=False)
     file_path = Column(String, nullable=False)
     upload_status = Column(String, nullable=False, default="COMPLETED")

@@ -15,3 +15,5 @@ services:
         value: "*"
       - key: LOG_LEVEL
         value: INFO
+      - key: DATABASE_URL
+        sync: false

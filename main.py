@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from config import APP_VERSION, APP_TITLE, APP_ENV, CORS_ORIGINS, setup_logging
-from database import get_db, create_tables
+from database import get_db, create_tables, validate_connection, get_db_type
 from models.itinerary import ItineraryRequest, ItineraryResponse
 from models.weather import WeatherRequest, WeatherResponse
 from models.trip import TripPlanRequest, TripPlanResponse
@@ -55,7 +55,20 @@ app.add_middleware(
 
 @app.on_event("startup")
 def on_startup():
+    import logging
+    logger = logging.getLogger("startup")
+
+    # Validate database connection
+    if not validate_connection():
+        logger.critical("Cannot connect to database — aborting startup")
+        raise RuntimeError("Database connection failed. Check DATABASE_URL.")
+
+    db_type = get_db_type()
+    logger.info(f"Database provider: {db_type.upper()}")
+    logger.info(f"Environment: {APP_ENV}")
+
     create_tables()
+
     from services.auth_service import seed_demo_data
     from database import SessionLocal
     db = SessionLocal()
@@ -63,6 +76,8 @@ def on_startup():
         seed_demo_data(db)
     finally:
         db.close()
+
+    logger.info(f"🚀 {APP_TITLE} v{APP_VERSION} started successfully")
 
 
 @app.get("/")
@@ -81,6 +96,7 @@ def health_check():
         "status": "UP",
         "version": APP_VERSION,
         "environment": APP_ENV,
+        "database": get_db_type(),
     }
 
 

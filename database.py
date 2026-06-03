@@ -1,9 +1,32 @@
-from sqlalchemy import create_engine
+import os
+import logging
+
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-DATABASE_URL = "sqlite:///./travel_memory.db"
+logger = logging.getLogger(__name__)
 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+# --------------- Database URL (environment-driven) ---------------
+# Priority: DATABASE_URL env var → SQLite fallback for local dev
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./travel_memory.db")
+
+# Render.com sometimes provides postgres:// (old scheme) instead of postgresql://
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+# --------------- Engine Configuration ---------------
+_is_sqlite = DATABASE_URL.startswith("sqlite")
+
+if _is_sqlite:
+    engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+else:
+    engine = create_engine(
+        DATABASE_URL,
+        pool_size=10,
+        max_overflow=20,
+        pool_pre_ping=True,
+        pool_recycle=300,
+    )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -18,15 +41,48 @@ def get_db():
         db.close()
 
 
+def get_db_type() -> str:
+    """Return 'postgresql' or 'sqlite'."""
+    return "sqlite" if _is_sqlite else "postgresql"
+
+
+def validate_connection() -> bool:
+    """Test the database connection and log the result."""
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        db_type = get_db_type()
+        logger.info(f"✅ Connected to {db_type.upper()} — {_masked_url()}")
+        return True
+    except Exception as e:
+        logger.error(f"❌ Database connection failed: {e}")
+        return False
+
+
 def create_tables():
     Base.metadata.create_all(bind=engine)
-    _run_migrations()
+    if _is_sqlite:
+        _run_sqlite_migrations()
 
 
-def _run_migrations():
-    """Add columns that may be missing from older schemas."""
+def _masked_url() -> str:
+    """Return the DATABASE_URL with password masked."""
+    url = DATABASE_URL
+    if "@" in url:
+        # mask password between : and @
+        before_at = url.split("@")[0]
+        after_at = url.split("@", 1)[1]
+        if ":" in before_at:
+            scheme_user = before_at.rsplit(":", 1)[0]
+            return f"{scheme_user}:****@{after_at}"
+    return url
+
+
+def _run_sqlite_migrations():
+    """Add columns that may be missing from older SQLite schemas."""
     import sqlite3
-    conn = sqlite3.connect(DATABASE_URL.replace("sqlite:///", ""))
+    db_path = DATABASE_URL.replace("sqlite:///", "")
+    conn = sqlite3.connect(db_path)
     cur = conn.cursor()
     # Get existing columns for trips table
     cur.execute("PRAGMA table_info(trips)")

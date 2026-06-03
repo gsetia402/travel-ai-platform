@@ -34,7 +34,7 @@ class ConsentTable(Base):
     consent_id = Column(String, primary_key=True, index=True)
     traveller_id = Column(String, ForeignKey("travellers.traveller_id", ondelete="CASCADE"), nullable=False, index=True)
     consent_type = Column(String, nullable=False)
-    status = Column(String, nullable=False, default="PENDING")
+    status = Column(String, nullable=False, default="PENDING", index=True)
     signed_by = Column(String, nullable=True)
     signed_at = Column(DateTime, nullable=True)
     notes = Column(String, nullable=True)
