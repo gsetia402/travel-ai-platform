@@ -70,19 +70,37 @@ def create_tables():
         _run_sqlite_migrations()
         logger.info("SQLite tables created via create_all()")
     else:
-        # PostgreSQL — verify tables exist (Alembic should have created them)
-        from sqlalchemy import inspect as sa_inspect
-        inspector = sa_inspect(engine)
-        existing = set(inspector.get_table_names())
-        expected = set(Base.metadata.tables.keys())
-        missing = expected - existing
-        if missing:
-            logger.warning(
-                f"PostgreSQL is missing {len(missing)} tables: {sorted(missing)}. "
-                f"Run 'alembic upgrade head' to create them."
-            )
-        else:
-            logger.info(f"PostgreSQL schema verified — {len(existing)} tables present")
+        validate_schema()
+
+
+def validate_schema():
+    """Fail fast if PostgreSQL is missing required tables.
+
+    Raises RuntimeError with clear instructions so operators know
+    exactly how to fix the database before the app serves traffic.
+    """
+    from sqlalchemy import inspect as sa_inspect
+    inspector = sa_inspect(engine)
+    existing = set(inspector.get_table_names())
+    expected = set(Base.metadata.tables.keys())
+    missing = expected - existing
+
+    if missing:
+        logger.error("=" * 60)
+        logger.error("PostgreSQL schema not initialized.")
+        logger.error(f"Missing {len(missing)} required tables:")
+        for table in sorted(missing):
+            logger.error(f"  - {table}")
+        logger.error("")
+        logger.error("Run:")
+        logger.error("  alembic upgrade head")
+        logger.error("=" * 60)
+        raise RuntimeError(
+            f"PostgreSQL schema not initialized — {len(missing)} tables missing. "
+            f"Run 'alembic upgrade head' to create them."
+        )
+
+    logger.info(f"PostgreSQL schema verified — {len(existing)} tables present")
 
 
 def _masked_url() -> str:
