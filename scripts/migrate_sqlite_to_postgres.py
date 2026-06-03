@@ -84,6 +84,29 @@ def table_exists_pg(pg_engine, table_name: str) -> bool:
     return table_name in inspector.get_table_names()
 
 
+
+# Columns that are Boolean in PostgreSQL but stored as 0/1 in SQLite
+BOOLEAN_COLUMNS = {
+    "users": {"active"},
+    "registration_links": {"active"},
+    "registration_form_configs": {
+        "collect_emergency_contact", "collect_medical_information",
+        "collect_dietary_preferences", "collect_passport_details",
+        "require_consent", "require_date_of_birth",
+    },
+    "trip_document_requirements": {"mandatory"},
+}
+
+
+def _coerce_booleans(table_name: str, row_dict: dict) -> dict:
+    """Convert SQLite integer booleans (0/1) to Python bool for PostgreSQL."""
+    bool_cols = BOOLEAN_COLUMNS.get(table_name, set())
+    for col in bool_cols:
+        if col in row_dict and row_dict[col] is not None:
+            row_dict[col] = bool(row_dict[col])
+    return row_dict
+
+
 def migrate_table(sqlite_path: str, pg_engine, table_name: str) -> int:
     """Migrate a single table from SQLite to PostgreSQL. Returns row count."""
     columns, rows = read_sqlite_table(sqlite_path, table_name)
@@ -108,6 +131,7 @@ def migrate_table(sqlite_path: str, pg_engine, table_name: str) -> int:
     try:
         for row in rows:
             row_dict = dict(zip(columns, row))
+            row_dict = _coerce_booleans(table_name, row_dict)
             try:
                 session.execute(insert_sql, row_dict)
                 inserted += 1
