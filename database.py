@@ -60,9 +60,29 @@ def validate_connection() -> bool:
 
 
 def create_tables():
-    Base.metadata.create_all(bind=engine)
+    """Create tables via create_all() for SQLite only.
+
+    For PostgreSQL, tables are managed exclusively by Alembic:
+        alembic upgrade head
+    """
     if _is_sqlite:
+        Base.metadata.create_all(bind=engine)
         _run_sqlite_migrations()
+        logger.info("SQLite tables created via create_all()")
+    else:
+        # PostgreSQL — verify tables exist (Alembic should have created them)
+        from sqlalchemy import inspect as sa_inspect
+        inspector = sa_inspect(engine)
+        existing = set(inspector.get_table_names())
+        expected = set(Base.metadata.tables.keys())
+        missing = expected - existing
+        if missing:
+            logger.warning(
+                f"PostgreSQL is missing {len(missing)} tables: {sorted(missing)}. "
+                f"Run 'alembic upgrade head' to create them."
+            )
+        else:
+            logger.info(f"PostgreSQL schema verified — {len(existing)} tables present")
 
 
 def _masked_url() -> str:

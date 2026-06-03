@@ -242,9 +242,9 @@ def main():
             ))
             conn.execute(text("DELETE FROM alembic_version"))
             conn.execute(text("INSERT INTO alembic_version (version_num) VALUES (:v)"),
-                         {"v": "0001_full_baseline"})
+                         {"v": "0001_create_all_tables"})
             conn.commit()
-        logger.info("✅ Alembic version stamped: 0001_full_baseline")
+        logger.info("✅ Alembic version stamped: 0001_create_all_tables")
     except Exception as e:
         logger.warning(f"Could not stamp Alembic version: {e}")
 
