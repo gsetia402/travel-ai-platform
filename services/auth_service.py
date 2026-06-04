@@ -64,6 +64,10 @@ def register_user(db: Session, request: RegisterRequest) -> TokenResponse:
     if existing:
         raise HTTPException(status_code=409, detail="Email already registered")
 
+    existing_phone = db.query(UserTable).filter(UserTable.phone == request.phone).first()
+    if existing_phone:
+        raise HTTPException(status_code=409, detail="Phone number already registered")
+
     user_count_before = db.query(UserTable).count()
     logger.info(f"[register] user count BEFORE create: {user_count_before}")
 
@@ -193,6 +197,7 @@ def get_me(db: Session, user: UserTable) -> UserResponse:
         role=user.role,
         active=user.active,
         created_at=user.created_at,
+        phone_missing=not user.phone,
     )
 
 

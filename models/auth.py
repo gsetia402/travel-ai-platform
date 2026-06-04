@@ -2,7 +2,7 @@ import enum
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.sql import func
 
@@ -42,7 +42,7 @@ class UserTable(Base):
     organization_id = Column(String, ForeignKey("organizations.organization_id", ondelete="CASCADE"), nullable=False, index=True)
     full_name = Column(String, nullable=False)
     email = Column(String, unique=True, nullable=False, index=True)
-    phone = Column(String, nullable=True)
+    phone = Column(String, unique=True, nullable=True, index=True)
     password_hash = Column(String, nullable=False)
     role = Column(String, nullable=False, default="COORDINATOR")
     active = Column(Boolean, default=True, nullable=False)
@@ -69,11 +69,19 @@ class OrganizationResponse(BaseModel):
 class RegisterRequest(BaseModel):
     full_name: str
     email: str
-    phone: Optional[str] = None
+    phone: str
     password: str
     organization_name: str
     organization_type: OrganizationType = OrganizationType.CORPORATE
     role: UserRole = UserRole.COORDINATOR
+
+    @field_validator('phone')
+    @classmethod
+    def validate_phone(cls, v: str) -> str:
+        digits = ''.join(c for c in v if c.isdigit())
+        if len(digits) < 10:
+            raise ValueError('Phone number must have at least 10 digits')
+        return v
 
 
 class LoginRequest(BaseModel):
@@ -102,3 +110,4 @@ class UserResponse(BaseModel):
     role: str
     active: bool
     created_at: Optional[datetime] = None
+    phone_missing: bool = False
