@@ -64,6 +64,9 @@ def register_user(db: Session, request: RegisterRequest) -> TokenResponse:
     if existing:
         raise HTTPException(status_code=409, detail="Email already registered")
 
+    user_count_before = db.query(UserTable).count()
+    logger.info(f"[register] user count BEFORE create: {user_count_before}")
+
     org = OrganizationTable(
         organization_id=str(uuid.uuid4()),
         name=request.organization_name,
@@ -87,6 +90,17 @@ def register_user(db: Session, request: RegisterRequest) -> TokenResponse:
     db.refresh(user)
     db.refresh(org)
 
+    # Verify persistence — read back from DB in same session
+    user_count_after = db.query(UserTable).count()
+    verify = db.query(UserTable).filter(UserTable.user_id == user.user_id).first()
+    logger.info(
+        f"[register] user count AFTER commit: {user_count_after} | "
+        f"verify user_id={user.user_id} exists={verify is not None} | "
+        f"email={request.email} | db_bind={db.bind.url.host if hasattr(db.bind.url, 'host') else 'sqlite'}"
+    )
+    if not verify:
+        logger.critical(f"[register] PERSISTENCE FAILURE — user {user.user_id} not found after commit!")
+
     token = create_access_token(user.user_id, org.organization_id, user.role)
     logger.info(f"Registered user {user.email} in org {org.name}")
 
@@ -105,6 +119,11 @@ def register_user(db: Session, request: RegisterRequest) -> TokenResponse:
 
 def login_user(db: Session, request: LoginRequest) -> TokenResponse:
     user = db.query(UserTable).filter(UserTable.email == request.email).first()
+    logger.info(
+        f"[login] email={request.email} | found={user is not None} | "
+        f"db_bind={db.bind.url.host if hasattr(db.bind.url, 'host') else 'sqlite'} | "
+        f"total_users={db.query(UserTable).count()}"
+    )
     if not user or not verify_password(request.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     if not user.active:
