@@ -53,6 +53,17 @@ def add_travellers_bulk(db: Session, trip_id: str, travellers: List[TravellerCre
             gender=req.gender,
             department=req.department,
             city=req.city,
+            date_of_birth=req.date_of_birth,
+            age=req.age,
+            emergency_contact_name=req.emergency_contact_name,
+            emergency_contact_phone=req.emergency_contact_phone,
+            emergency_relationship=req.emergency_relationship,
+            medical_conditions=req.medical_conditions,
+            allergies=req.allergies,
+            special_requirements=req.special_requirements,
+            dietary_preferences=req.dietary_preferences,
+            passport_number=req.passport_number,
+            nationality=req.nationality,
             participation_status=req.participation_status or "INVITED",
         )
         records.append(record)
@@ -78,6 +89,16 @@ def delete_traveller(db: Session, traveller_id: str) -> bool:
     db.commit()
     logger.info(f"Deleted traveller: {traveller_id}")
     return True
+
+
+def delete_travellers_bulk(db: Session, trip_id: str, traveller_ids: List[str]) -> int:
+    count = db.query(TravellerTable).filter(
+        TravellerTable.traveller_id.in_(traveller_ids),
+        TravellerTable.trip_id == trip_id,
+    ).delete(synchronize_session=False)
+    db.commit()
+    logger.info(f"Bulk deleted {count} travellers from trip {trip_id}")
+    return count
 
 
 def count_travellers_by_trip(db: Session, trip_id: str) -> int:

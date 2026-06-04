@@ -18,13 +18,20 @@ from repositories.traveller_repository import (
     get_traveller_by_id,
     update_traveller as repo_update_traveller,
     delete_traveller,
+    delete_travellers_bulk,
 )
 from repositories.trip_repository import get_trip_by_id
 
 logger = logging.getLogger(__name__)
 
 REQUIRED_CSV_COLUMNS = {"first_name", "last_name", "phone", "email"}
-VALID_CSV_COLUMNS = {"first_name", "last_name", "phone", "email", "gender", "department", "city"}
+OPTIONAL_CSV_COLUMNS = {
+    "gender", "department", "city", "date_of_birth", "age",
+    "emergency_contact_name", "emergency_contact_phone", "emergency_relationship",
+    "medical_conditions", "allergies", "special_requirements",
+    "dietary_preferences", "passport_number", "nationality", "participation_status",
+}
+VALID_CSV_COLUMNS = REQUIRED_CSV_COLUMNS | OPTIONAL_CSV_COLUMNS
 
 
 def create_traveller(db: Session, trip_id: str, request: TravellerCreateRequest) -> TravellerResponse:
@@ -66,6 +73,17 @@ def remove_traveller(db: Session, traveller_id: str) -> bool:
     return True
 
 
+def remove_travellers_bulk(db: Session, trip_id: str, traveller_ids: List[str]) -> int:
+    trip = get_trip_by_id(db, trip_id)
+    if not trip:
+        raise ValueError(f"Trip not found: {trip_id}")
+    if not traveller_ids:
+        raise ValueError("No traveller IDs provided")
+    count = delete_travellers_bulk(db, trip_id, traveller_ids)
+    logger.info(f"Bulk deleted {count}/{len(traveller_ids)} travellers from trip {trip_id}")
+    return count
+
+
 def upload_travellers_csv(db: Session, trip_id: str, file_content: bytes) -> CSVUploadResponse:
     trip = get_trip_by_id(db, trip_id)
     if not trip:
@@ -103,6 +121,12 @@ def upload_travellers_csv(db: Session, trip_id: str, file_content: bytes) -> CSV
             errors.append(f"Row {i}: missing required field (first_name, last_name, phone, or email)")
             continue
 
+        try:
+            age_raw = cleaned.get("age", "")
+            age_val = int(age_raw) if age_raw else None
+        except ValueError:
+            age_val = None
+
         valid_travellers.append(
             TravellerCreateRequest(
                 first_name=first_name,
@@ -112,6 +136,18 @@ def upload_travellers_csv(db: Session, trip_id: str, file_content: bytes) -> CSV
                 gender=cleaned.get("gender") or None,
                 department=cleaned.get("department") or None,
                 city=cleaned.get("city") or None,
+                date_of_birth=cleaned.get("date_of_birth") or None,
+                age=age_val,
+                emergency_contact_name=cleaned.get("emergency_contact_name") or None,
+                emergency_contact_phone=cleaned.get("emergency_contact_phone") or None,
+                emergency_relationship=cleaned.get("emergency_relationship") or None,
+                medical_conditions=cleaned.get("medical_conditions") or None,
+                allergies=cleaned.get("allergies") or None,
+                special_requirements=cleaned.get("special_requirements") or None,
+                dietary_preferences=cleaned.get("dietary_preferences") or None,
+                passport_number=cleaned.get("passport_number") or None,
+                nationality=cleaned.get("nationality") or None,
+                participation_status=cleaned.get("participation_status") or "INVITED",
             )
         )
 

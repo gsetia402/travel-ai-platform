@@ -18,6 +18,7 @@ from services.traveller_service import (
     get_single_traveller,
     update_traveller,
     remove_traveller,
+    remove_travellers_bulk,
     upload_travellers_csv,
 )
 from services.auth_service import get_current_user
@@ -63,6 +64,23 @@ def delete_traveller(traveller_id: str, db: Session = Depends(get_db), user: Use
     try:
         remove_traveller(db, traveller_id)
         return {"message": f"Traveller {traveller_id} deleted successfully"}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/trips/{trip_id}/travellers/bulk-delete")
+def bulk_delete_travellers(
+    trip_id: str,
+    payload: dict,
+    db: Session = Depends(get_db),
+    trip: TripTable = Depends(require_trip_access),
+):
+    traveller_ids = payload.get("traveller_ids", [])
+    if not traveller_ids or not isinstance(traveller_ids, list):
+        raise HTTPException(status_code=400, detail="traveller_ids must be a non-empty list")
+    try:
+        count = remove_travellers_bulk(db, trip_id, traveller_ids)
+        return {"deleted": count, "requested": len(traveller_ids)}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 

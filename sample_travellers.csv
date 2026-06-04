@@ -1,0 +1,6 @@
+first_name,last_name,phone,email,gender,department,city,date_of_birth,age,emergency_contact_name,emergency_contact_phone,emergency_relationship,medical_conditions,allergies,special_requirements,dietary_preferences,passport_number,nationality,participation_status
+Rahul,Sharma,9876543210,rahul.sharma@example.com,Male,Engineering,Delhi,1995-03-15,31,Sunita Sharma,9876543211,Mother,None,None,,Vegetarian,J1234567,Indian,CONFIRMED
+Priya,Singh,8765432109,priya.singh@example.com,Female,Marketing,Mumbai,1998-07-22,27,Raj Singh,8765432100,Father,Asthma,Peanuts,Wheelchair access,Vegan,K2345678,Indian,CONFIRMED
+Amit,Verma,7654321098,amit.verma@example.com,Male,Sales,Bangalore,1992-11-01,33,Neha Verma,7654321099,Spouse,,Dust,,Non-Vegetarian,L3456789,Indian,INVITED
+Sneha,Gupta,6543210987,sneha.gupta@example.com,Female,HR,Pune,2000-01-10,26,Ramesh Gupta,6543210988,Father,Diabetes,None,Low-sugar meals,Vegetarian,,Indian,INVITED
+Vikram,Patel,5432109876,vikram.patel@example.com,Male,Finance,Ahmedabad,1990-06-30,36,,,,,,,,M4567890,Indian,CONFIRMED
