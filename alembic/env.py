@@ -33,6 +33,7 @@ import models.communication  # noqa: E402,F401
 import models.registration  # noqa: E402,F401
 import models.trip_itinerary  # noqa: E402,F401
 import models.user_preference  # noqa: E402,F401
+import models.trip_document  # noqa: E402,F401
 
 target_metadata = Base.metadata
 
