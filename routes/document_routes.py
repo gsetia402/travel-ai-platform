@@ -88,10 +88,10 @@ def delete_document(document_id: str, db: Session = Depends(get_db), user: UserT
 
 @router.get("/documents/{document_id}/download")
 def download_document(document_id: str, token: str = None, db: Session = Depends(get_db)):
-    """Download a document file. Auth via ?token= query param (for img/iframe preview) or unauthenticated by UUID."""
+    """Download a document file via StorageProvider."""
     from models.document import TravellerDocumentTable
     from fastapi.responses import Response
-    import os
+    from services.storage_provider import get_storage_provider, _content_type_from_filename
 
     if token:
         from services.auth_service import decode_token
@@ -103,18 +103,14 @@ def download_document(document_id: str, token: str = None, db: Session = Depends
     doc = db.query(TravellerDocumentTable).filter(TravellerDocumentTable.document_id == document_id).first()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
-    if not os.path.exists(doc.file_path):
-        raise HTTPException(status_code=404, detail="File not found on disk")
-    with open(doc.file_path, "rb") as f:
-        content = f.read()
-    content_type = "application/octet-stream"
-    ext = doc.file_name.lower().rsplit(".", 1)[-1] if "." in doc.file_name else ""
-    if ext == "pdf":
-        content_type = "application/pdf"
-    elif ext in ("jpg", "jpeg"):
-        content_type = "image/jpeg"
-    elif ext == "png":
-        content_type = "image/png"
+
+    storage = get_storage_provider()
+    try:
+        content = storage.download(doc.file_path)
+    except Exception:
+        raise HTTPException(status_code=404, detail="File not found on storage")
+
+    content_type = _content_type_from_filename(doc.file_name)
     safe_name = doc.file_name.encode("ascii", "ignore").decode("ascii").replace('"', '') or "document"
     return Response(content=content, media_type=content_type, headers={"Content-Disposition": f'inline; filename="{safe_name}"'})
 

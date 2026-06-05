@@ -30,18 +30,13 @@ from repositories.document_repository import (
 from repositories.trip_repository import get_trip_by_id
 from repositories.traveller_repository import get_traveller_by_id, count_travellers_by_trip
 from repositories.consent_repository import count_consents_by_traveller_and_status
+from services.storage_provider import get_storage_provider, _content_type_from_filename
 
 logger = logging.getLogger(__name__)
-
-UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "uploads")
 
 
 class ConflictError(Exception):
     pass
-
-
-def _ensure_upload_dir():
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
 # --- Upload ---
@@ -51,15 +46,12 @@ def upload_document(db: Session, traveller_id: str, document_type: str, file_nam
     if not traveller:
         raise ValueError(f"Traveller not found: {traveller_id}")
 
-    _ensure_upload_dir()
-    traveller_dir = os.path.join(UPLOAD_DIR, traveller_id)
-    os.makedirs(traveller_dir, exist_ok=True)
+    storage = get_storage_provider()
+    content_type = _content_type_from_filename(file_name)
+    key = f"traveller-documents/{traveller_id}/{file_name}"
+    storage.upload(key, file_content, content_type)
 
-    file_path = os.path.join(traveller_dir, file_name)
-    with open(file_path, "wb") as f:
-        f.write(file_content)
-
-    doc = create_document(db, traveller_id, document_type, file_name, file_path)
+    doc = create_document(db, traveller_id, document_type, file_name, key)
     return DocumentUploadResponse.model_validate(doc)
 
 
