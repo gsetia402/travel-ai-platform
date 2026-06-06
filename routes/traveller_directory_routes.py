@@ -277,30 +277,42 @@ def api_sync_directory_to_trip(
         master = db.query(TravellerMasterTable).filter(TravellerMasterTable.master_id == mapping.master_id).first()
         if not master:
             continue
-        # Check if legacy record exists
-        legacy_exists = False
-        if master.phone:
-            legacy_exists = db.query(TravellerTable).filter(TravellerTable.trip_id == trip_id, TravellerTable.phone == master.phone).first() is not None
-        if not legacy_exists and master.email:
-            legacy_exists = db.query(TravellerTable).filter(TravellerTable.trip_id == trip_id, TravellerTable.email == master.email).first() is not None
+        # Need at least first_name to create a useful record
+        if not master.first_name:
+            continue
+        # Check if legacy record already exists by matching name+trip
+        legacy_exists = db.query(TravellerTable).filter(
+            TravellerTable.trip_id == trip_id,
+            TravellerTable.first_name == master.first_name,
+            TravellerTable.last_name == master.last_name,
+        ).first() is not None
+        if not legacy_exists and master.phone:
+            legacy_exists = db.query(TravellerTable).filter(
+                TravellerTable.trip_id == trip_id, TravellerTable.phone == master.phone
+            ).first() is not None
         if not legacy_exists:
-            db.add(TravellerTable(
-                traveller_id=str(uuid.uuid4()),
-                trip_id=trip_id,
-                first_name=master.first_name,
-                last_name=master.last_name,
-                phone=master.phone or "",
-                email=master.email or "",
-                gender=master.gender,
-                city=master.city,
-                nationality=master.nationality,
-                date_of_birth=master.date_of_birth,
-                emergency_contact_name=master.emergency_contact_name,
-                emergency_contact_phone=master.emergency_contact_phone,
-                medical_conditions=master.medical_conditions,
-                participation_status="INVITED",
-            ))
-            synced += 1
+            try:
+                db.add(TravellerTable(
+                    traveller_id=str(uuid.uuid4()),
+                    trip_id=trip_id,
+                    first_name=master.first_name,
+                    last_name=master.last_name or "",
+                    phone=master.phone or f"dir-{master.master_id[:8]}",
+                    email=master.email or f"dir-{master.master_id[:8]}@placeholder.local",
+                    gender=master.gender,
+                    city=master.city,
+                    nationality=master.nationality,
+                    date_of_birth=master.date_of_birth,
+                    emergency_contact_name=master.emergency_contact_name,
+                    emergency_contact_phone=master.emergency_contact_phone,
+                    medical_conditions=master.medical_conditions,
+                    participation_status="INVITED",
+                ))
+                db.flush()
+                synced += 1
+            except Exception:
+                db.rollback()
+                continue
     db.commit()
     return {"synced": synced, "total_mappings": len(mappings)}
 

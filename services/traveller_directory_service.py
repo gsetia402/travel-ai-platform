@@ -224,26 +224,25 @@ def add_group_to_trip(db: Session, org_id: str, trip_id: str, group_id: str) -> 
             master_id=m.master_id,
             added_via=f"group:{group_id}",
         ))
-        # Also check if legacy traveller already exists (by phone or email match)
-        legacy_exists = False
-        if m.phone:
+        # Check if legacy traveller already exists by name match
+        legacy_exists = db.query(TravellerTable).filter(
+            TravellerTable.trip_id == trip_id,
+            TravellerTable.first_name == m.first_name,
+            TravellerTable.last_name == m.last_name,
+        ).first() is not None
+        if not legacy_exists and m.phone:
             legacy_exists = db.query(TravellerTable).filter(
                 TravellerTable.trip_id == trip_id,
                 TravellerTable.phone == m.phone,
-            ).first() is not None
-        if not legacy_exists and m.email:
-            legacy_exists = db.query(TravellerTable).filter(
-                TravellerTable.trip_id == trip_id,
-                TravellerTable.email == m.email,
             ).first() is not None
         if not legacy_exists:
             db.add(TravellerTable(
                 traveller_id=str(uuid.uuid4()),
                 trip_id=trip_id,
                 first_name=m.first_name,
-                last_name=m.last_name,
-                phone=m.phone or "",
-                email=m.email or "",
+                last_name=m.last_name or "",
+                phone=m.phone or f"dir-{m.master_id[:8]}",
+                email=m.email or f"dir-{m.master_id[:8]}@placeholder.local",
                 gender=m.gender,
                 city=m.city,
                 nationality=m.nationality,
