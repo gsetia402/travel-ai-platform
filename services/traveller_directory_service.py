@@ -197,32 +197,65 @@ def remove_member_from_group(db: Session, org_id: str, group_id: str, master_id:
 # --------------- Trip Integration ---------------
 
 def add_group_to_trip(db: Session, org_id: str, trip_id: str, group_id: str) -> dict:
-    """Add all members of a group to a trip. Returns added/skipped counts."""
+    """Add all members of a group to a trip. Creates legacy traveller records so
+    they show in the existing Travellers tab and work with rooms/docs/etc."""
+    from models.group_trip import TravellerTable
     group = get_group(db, org_id, group_id)
     if not group:
         raise ValueError("Group not found")
-    member_ids = [r[0] for r in db.query(GroupMemberTable.master_id).filter(
-        GroupMemberTable.group_id == group_id
-    ).all()]
+    masters = db.query(TravellerMasterTable).join(
+        GroupMemberTable, GroupMemberTable.master_id == TravellerMasterTable.master_id
+    ).filter(GroupMemberTable.group_id == group_id).all()
     added = 0
     skipped = 0
-    for mid in member_ids:
+    for m in masters:
+        # Check trip_travellers mapping
         exists = db.query(TripTravellerTable).filter(
             TripTravellerTable.trip_id == trip_id,
-            TripTravellerTable.master_id == mid,
+            TripTravellerTable.master_id == m.master_id,
         ).first()
-        if not exists:
-            db.add(TripTravellerTable(
-                id=str(uuid.uuid4()),
-                trip_id=trip_id,
-                master_id=mid,
-                added_via=f"group:{group_id}",
-            ))
-            added += 1
-        else:
+        if exists:
             skipped += 1
+            continue
+        # Create mapping
+        db.add(TripTravellerTable(
+            id=str(uuid.uuid4()),
+            trip_id=trip_id,
+            master_id=m.master_id,
+            added_via=f"group:{group_id}",
+        ))
+        # Also check if legacy traveller already exists (by phone or email match)
+        legacy_exists = False
+        if m.phone:
+            legacy_exists = db.query(TravellerTable).filter(
+                TravellerTable.trip_id == trip_id,
+                TravellerTable.phone == m.phone,
+            ).first() is not None
+        if not legacy_exists and m.email:
+            legacy_exists = db.query(TravellerTable).filter(
+                TravellerTable.trip_id == trip_id,
+                TravellerTable.email == m.email,
+            ).first() is not None
+        if not legacy_exists:
+            db.add(TravellerTable(
+                traveller_id=str(uuid.uuid4()),
+                trip_id=trip_id,
+                first_name=m.first_name,
+                last_name=m.last_name,
+                phone=m.phone or "",
+                email=m.email or "",
+                gender=m.gender,
+                city=m.city,
+                nationality=m.nationality,
+                date_of_birth=m.date_of_birth,
+                emergency_contact_name=m.emergency_contact_name,
+                emergency_contact_phone=m.emergency_contact_phone,
+                medical_conditions=m.medical_conditions,
+                participation_status="INVITED",
+            ))
+        added += 1
     db.commit()
-    return {"added": added, "skipped": skipped, "total": len(member_ids)}
+    return {"added": added, "skipped": skipped, "total": len(masters)}
 
 
 def create_and_add_to_group(db: Session, org_id: str, group_id: str, data: TravellerMasterCreate) -> TravellerMasterTable:

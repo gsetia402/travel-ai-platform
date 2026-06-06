@@ -263,6 +263,48 @@ def api_add_group_to_trip(
         raise HTTPException(status_code=404, detail=str(e))
 
 
+@router.post("/trips/{trip_id}/sync-directory")
+def api_sync_directory_to_trip(
+    trip_id: str,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    """Backfill legacy traveller records for any trip_travellers entries that don't have one yet."""
+    from models.group_trip import TravellerTable
+    mappings = db.query(TripTravellerTable).filter(TripTravellerTable.trip_id == trip_id).all()
+    synced = 0
+    for mapping in mappings:
+        master = db.query(TravellerMasterTable).filter(TravellerMasterTable.master_id == mapping.master_id).first()
+        if not master:
+            continue
+        # Check if legacy record exists
+        legacy_exists = False
+        if master.phone:
+            legacy_exists = db.query(TravellerTable).filter(TravellerTable.trip_id == trip_id, TravellerTable.phone == master.phone).first() is not None
+        if not legacy_exists and master.email:
+            legacy_exists = db.query(TravellerTable).filter(TravellerTable.trip_id == trip_id, TravellerTable.email == master.email).first() is not None
+        if not legacy_exists:
+            db.add(TravellerTable(
+                traveller_id=str(uuid.uuid4()),
+                trip_id=trip_id,
+                first_name=master.first_name,
+                last_name=master.last_name,
+                phone=master.phone or "",
+                email=master.email or "",
+                gender=master.gender,
+                city=master.city,
+                nationality=master.nationality,
+                date_of_birth=master.date_of_birth,
+                emergency_contact_name=master.emergency_contact_name,
+                emergency_contact_phone=master.emergency_contact_phone,
+                medical_conditions=master.medical_conditions,
+                participation_status="INVITED",
+            ))
+            synced += 1
+    db.commit()
+    return {"synced": synced, "total_mappings": len(mappings)}
+
+
 @router.post("/trips/{trip_id}/directory-travellers/{master_id}")
 def api_add_traveller_to_trip(
     trip_id: str,
