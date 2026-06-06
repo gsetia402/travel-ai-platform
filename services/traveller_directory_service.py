@@ -196,8 +196,8 @@ def remove_member_from_group(db: Session, org_id: str, group_id: str, master_id:
 
 # --------------- Trip Integration ---------------
 
-def add_group_to_trip(db: Session, org_id: str, trip_id: str, group_id: str) -> int:
-    """Add all members of a group to a trip. Returns count of newly added."""
+def add_group_to_trip(db: Session, org_id: str, trip_id: str, group_id: str) -> dict:
+    """Add all members of a group to a trip. Returns added/skipped counts."""
     group = get_group(db, org_id, group_id)
     if not group:
         raise ValueError("Group not found")
@@ -205,6 +205,7 @@ def add_group_to_trip(db: Session, org_id: str, trip_id: str, group_id: str) -> 
         GroupMemberTable.group_id == group_id
     ).all()]
     added = 0
+    skipped = 0
     for mid in member_ids:
         exists = db.query(TripTravellerTable).filter(
             TripTravellerTable.trip_id == trip_id,
@@ -218,8 +219,18 @@ def add_group_to_trip(db: Session, org_id: str, trip_id: str, group_id: str) -> 
                 added_via=f"group:{group_id}",
             ))
             added += 1
+        else:
+            skipped += 1
     db.commit()
-    return added
+    return {"added": added, "skipped": skipped, "total": len(member_ids)}
+
+
+def create_and_add_to_group(db: Session, org_id: str, group_id: str, data: TravellerMasterCreate) -> TravellerMasterTable:
+    """Create a master traveller and add to group in one step."""
+    record = create_master_traveller(db, org_id, data)
+    db.add(GroupMemberTable(id=str(uuid.uuid4()), group_id=group_id, master_id=record.master_id))
+    db.commit()
+    return record
 
 
 def add_traveller_to_trip(db: Session, trip_id: str, master_id: str, via: str = "manual") -> Optional[TripTravellerTable]:

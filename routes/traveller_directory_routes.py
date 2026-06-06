@@ -194,6 +194,59 @@ def api_remove_group_member(
         raise HTTPException(status_code=404, detail="Member not found in group")
 
 
+@router.post("/groups/{group_id}/add-traveller", response_model=TravellerMasterResponse, status_code=201)
+def api_create_traveller_in_group(
+    group_id: str,
+    data: TravellerMasterCreate,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    """Create a master traveller and add to group in one step."""
+    from services.traveller_directory_service import create_and_add_to_group, get_group
+    group = get_group(db, user.organization_id, group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    record = create_and_add_to_group(db, user.organization_id, group_id, data)
+    return enrich_master_response(db, record)
+
+
+@router.post("/groups/{group_id}/import-csv", status_code=201)
+async def api_import_csv_into_group(
+    group_id: str,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    """Import CSV: create master travellers and add them to the group automatically."""
+    from services.traveller_directory_service import create_and_add_to_group, get_group
+    group = get_group(db, user.organization_id, group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    content = await file.read()
+    text = content.decode("utf-8-sig")
+    reader = csv.DictReader(io.StringIO(text))
+    created = 0
+    errors = []
+    for i, row in enumerate(reader, start=2):
+        fname = (row.get("first_name") or "").strip()
+        lname = (row.get("last_name") or "").strip()
+        if not fname or not lname:
+            errors.append(f"Row {i}: missing first_name or last_name")
+            continue
+        data = TravellerMasterCreate(
+            first_name=fname,
+            last_name=lname,
+            phone=(row.get("phone") or "").strip() or None,
+            email=(row.get("email") or "").strip() or None,
+            gender=(row.get("gender") or "").strip() or None,
+            city=(row.get("city") or "").strip() or None,
+            nationality=(row.get("nationality") or "").strip() or None,
+        )
+        create_and_add_to_group(db, user.organization_id, group_id, data)
+        created += 1
+    return {"total_rows": created + len(errors), "successful": created, "failed": len(errors), "errors": errors[:20]}
+
+
 # --------------- Trip Integration ---------------
 
 @router.post("/trips/{trip_id}/groups/{group_id}")
@@ -204,8 +257,8 @@ def api_add_group_to_trip(
     user=Depends(get_current_user),
 ):
     try:
-        added = add_group_to_trip(db, user.organization_id, trip_id, group_id)
-        return {"added": added, "group_id": group_id, "trip_id": trip_id}
+        result = add_group_to_trip(db, user.organization_id, trip_id, group_id)
+        return {"group_id": group_id, "trip_id": trip_id, **result}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
