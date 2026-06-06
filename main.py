@@ -36,6 +36,7 @@ setup_logging()
 app = FastAPI(title=APP_TITLE, version=APP_VERSION)
 
 app.include_router(trip_router)
+app.include_router(traveller_directory_router)
 app.include_router(traveller_router)
 app.include_router(room_router)
 app.include_router(profile_router)
@@ -48,7 +49,6 @@ app.include_router(auth_router)
 app.include_router(itinerary_router)
 app.include_router(traveller_portal_router)
 app.include_router(trip_document_router)
-app.include_router(traveller_directory_router)
 
 app.add_middleware(
     CORSMiddleware,
