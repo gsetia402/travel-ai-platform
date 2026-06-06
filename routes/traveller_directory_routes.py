@@ -34,7 +34,7 @@ def api_list_master_travellers(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    records = list_master_travellers(db, user["organization_id"], search)
+    records = list_master_travellers(db, user.organization_id, search)
     return [enrich_master_response(db, r) for r in records]
 
 
@@ -44,7 +44,7 @@ def api_create_master_traveller(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    record = create_master_traveller(db, user["organization_id"], data)
+    record = create_master_traveller(db, user.organization_id, data)
     return enrich_master_response(db, record)
 
 
@@ -54,7 +54,7 @@ def api_get_master_traveller(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    record = get_master_traveller(db, user["organization_id"], master_id)
+    record = get_master_traveller(db, user.organization_id, master_id)
     if not record:
         raise HTTPException(status_code=404, detail="Traveller not found")
     return enrich_master_response(db, record)
@@ -67,7 +67,7 @@ def api_update_master_traveller(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    record = update_master_traveller(db, user["organization_id"], master_id, data)
+    record = update_master_traveller(db, user.organization_id, master_id, data)
     if not record:
         raise HTTPException(status_code=404, detail="Traveller not found")
     return enrich_master_response(db, record)
@@ -79,7 +79,7 @@ def api_delete_master_traveller(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    if not delete_master_traveller(db, user["organization_id"], master_id):
+    if not delete_master_traveller(db, user.organization_id, master_id):
         raise HTTPException(status_code=404, detail="Traveller not found")
 
 
@@ -110,7 +110,7 @@ async def api_import_master_travellers_csv(
             city=(row.get("city") or "").strip() or None,
             nationality=(row.get("nationality") or "").strip() or None,
         )
-        create_master_traveller(db, user["organization_id"], data)
+        create_master_traveller(db, user.organization_id, data)
         created += 1
     return {"total_rows": created + len(errors), "successful": created, "failed": len(errors), "errors": errors[:20]}
 
@@ -119,12 +119,12 @@ async def api_import_master_travellers_csv(
 
 @router.get("/groups", response_model=List[GroupResponse])
 def api_list_groups(db: Session = Depends(get_db), user=Depends(get_current_user)):
-    return list_groups(db, user["organization_id"])
+    return list_groups(db, user.organization_id)
 
 
 @router.post("/groups", response_model=GroupResponse, status_code=201)
 def api_create_group(data: GroupCreate, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    group = create_group(db, user["organization_id"], data)
+    group = create_group(db, user.organization_id, data)
     return GroupResponse(
         group_id=group.group_id,
         organization_id=group.organization_id,
@@ -137,7 +137,7 @@ def api_create_group(data: GroupCreate, db: Session = Depends(get_db), user=Depe
 
 @router.get("/groups/{group_id}", response_model=GroupDetailResponse)
 def api_get_group(group_id: str, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    detail = get_group_detail(db, user["organization_id"], group_id)
+    detail = get_group_detail(db, user.organization_id, group_id)
     if not detail:
         raise HTTPException(status_code=404, detail="Group not found")
     return detail
@@ -145,7 +145,7 @@ def api_get_group(group_id: str, db: Session = Depends(get_db), user=Depends(get
 
 @router.put("/groups/{group_id}", response_model=GroupResponse)
 def api_update_group(group_id: str, data: GroupUpdate, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    group = update_group(db, user["organization_id"], group_id, data)
+    group = update_group(db, user.organization_id, group_id, data)
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
     from services.traveller_directory_service import get_group as _get_group
@@ -163,7 +163,7 @@ def api_update_group(group_id: str, data: GroupUpdate, db: Session = Depends(get
 
 @router.delete("/groups/{group_id}", status_code=204)
 def api_delete_group(group_id: str, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    if not delete_group(db, user["organization_id"], group_id):
+    if not delete_group(db, user.organization_id, group_id):
         raise HTTPException(status_code=404, detail="Group not found")
 
 
@@ -177,7 +177,7 @@ def api_add_group_members(
     user=Depends(get_current_user),
 ):
     try:
-        added = add_members_to_group(db, user["organization_id"], group_id, master_ids)
+        added = add_members_to_group(db, user.organization_id, group_id, master_ids)
         return {"added": added}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -190,7 +190,7 @@ def api_remove_group_member(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    if not remove_member_from_group(db, user["organization_id"], group_id, master_id):
+    if not remove_member_from_group(db, user.organization_id, group_id, master_id):
         raise HTTPException(status_code=404, detail="Member not found in group")
 
 
@@ -204,7 +204,7 @@ def api_add_group_to_trip(
     user=Depends(get_current_user),
 ):
     try:
-        added = add_group_to_trip(db, user["organization_id"], trip_id, group_id)
+        added = add_group_to_trip(db, user.organization_id, trip_id, group_id)
         return {"added": added, "group_id": group_id, "trip_id": trip_id}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
