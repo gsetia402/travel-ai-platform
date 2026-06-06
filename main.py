@@ -29,6 +29,7 @@ from routes.auth_routes import router as auth_router
 from routes.itinerary_routes import router as itinerary_router
 from routes.traveller_portal_routes import router as traveller_portal_router
 from routes.trip_document_routes import router as trip_document_router
+from routes.traveller_directory_routes import router as traveller_directory_router
 
 setup_logging()
 
@@ -47,6 +48,7 @@ app.include_router(auth_router)
 app.include_router(itinerary_router)
 app.include_router(traveller_portal_router)
 app.include_router(trip_document_router)
+app.include_router(traveller_directory_router)
 
 app.add_middleware(
     CORSMiddleware,
