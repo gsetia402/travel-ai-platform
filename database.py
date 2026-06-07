@@ -102,6 +102,25 @@ def validate_schema():
 
     logger.info(f"PostgreSQL schema verified — {len(existing)} tables present")
 
+    # Auto-add missing columns (safe for production — ADD COLUMN IF NOT EXISTS)
+    _pg_ensure_columns()
+
+
+def _pg_ensure_columns():
+    """Add missing columns to PostgreSQL tables at startup. Uses ADD COLUMN IF NOT EXISTS."""
+    from sqlalchemy import text
+    migrations = [
+        "ALTER TABLE trips ADD COLUMN IF NOT EXISTS financial_model VARCHAR NOT NULL DEFAULT 'SPONSORED'",
+        "ALTER TABLE expenses ADD COLUMN IF NOT EXISTS receipt_path VARCHAR",
+    ]
+    with engine.begin() as conn:
+        for stmt in migrations:
+            try:
+                conn.execute(text(stmt))
+            except Exception as e:
+                logger.warning(f"Column migration skipped: {e}")
+    logger.info("PostgreSQL column check complete")
+
 
 def _masked_url() -> str:
     """Return the DATABASE_URL with password masked."""
@@ -131,6 +150,15 @@ def _run_sqlite_migrations():
         cur.execute("ALTER TABLE trips ADD COLUMN origin_city TEXT")
     if "origin_state" not in columns:
         cur.execute("ALTER TABLE trips ADD COLUMN origin_state TEXT")
+    if "financial_model" not in columns:
+        cur.execute("ALTER TABLE trips ADD COLUMN financial_model TEXT NOT NULL DEFAULT 'SPONSORED'")
+    conn.commit()
+
+    # Get existing columns for expenses table
+    cur.execute("PRAGMA table_info(expenses)")
+    exp_columns = {row[1] for row in cur.fetchall()}
+    if "receipt_path" not in exp_columns:
+        cur.execute("ALTER TABLE expenses ADD COLUMN receipt_path TEXT")
     conn.commit()
 
     # Migrate document statuses: PENDING and VERIFIED → UPLOADED
