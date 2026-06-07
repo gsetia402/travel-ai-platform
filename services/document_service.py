@@ -24,6 +24,7 @@ from repositories.document_repository import (
     add_requirement,
     get_requirements_by_trip,
     get_all_documents_by_trip,
+    count_uploaded_by_type_for_trip,
     count_uploaded_by_trip,
     count_verified_by_trip,
     count_pending_by_trip,
@@ -218,6 +219,12 @@ def calculate_trip_readiness_percentage(db: Session, trip_id: str) -> float:
 # --- Per-Document-Type Trip Stats ---
 
 def get_trip_document_stats(db: Session, trip_id: str) -> TripDocumentStatsResponse:
+    """
+    Optimized: uses a single GROUP BY aggregation query instead of N×R individual queries.
+
+    Before: 1 (get_trip) + 1 (get_travellers) + 1 (get_requirements) + N×R (get_uploaded_types per traveller per req)
+    After:  1 (get_trip) + 1 (count_travellers) + 1 (get_requirements) + 1 (aggregation query)
+    """
     from repositories.traveller_repository import get_travellers_by_trip
 
     trip = get_trip_by_id(db, trip_id)
@@ -229,13 +236,13 @@ def get_trip_document_stats(db: Session, trip_id: str) -> TripDocumentStatsRespo
     total = len(active_travellers)
 
     reqs = get_requirements_by_trip(db, trip_id)
+
+    # Single aggregation query: {doc_type: count_of_travellers_with_upload}
+    upload_counts = count_uploaded_by_type_for_trip(db, trip_id)
+
     doc_stats = []
     for req in reqs:
-        uploaded_count = 0
-        for t in active_travellers:
-            types = set(get_uploaded_types_for_traveller(db, t.traveller_id))
-            if req.document_type in types:
-                uploaded_count += 1
+        uploaded_count = upload_counts.get(req.document_type, 0)
         doc_stats.append(DocumentTypeStats(
             document_type=req.document_type,
             mandatory=req.mandatory,

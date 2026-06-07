@@ -102,6 +102,42 @@ def get_all_documents_by_trip(db: Session, trip_id: str) -> List[TravellerDocume
     )
 
 
+def count_uploaded_by_type_for_trip(db: Session, trip_id: str) -> dict:
+    """
+    Single aggregation query: for each document_type, count distinct travellers
+    who have at least one non-REJECTED upload.
+
+    Returns: { "PASSPORT": 42, "VISA": 38, ... }
+
+    SQL equivalent:
+        SELECT d.document_type, COUNT(DISTINCT d.traveller_id)
+        FROM traveller_documents d
+        JOIN travellers t ON d.traveller_id = t.traveller_id
+        WHERE t.trip_id = :trip_id
+          AND t.membership_status IN ('ACTIVE', NULL)
+          AND d.verification_status != 'REJECTED'
+        GROUP BY d.document_type
+    """
+    from sqlalchemy import func as sa_func
+    from models.group_trip import TravellerTable
+
+    rows = (
+        db.query(
+            TravellerDocumentTable.document_type,
+            sa_func.count(sa_func.distinct(TravellerDocumentTable.traveller_id)),
+        )
+        .join(TravellerTable, TravellerDocumentTable.traveller_id == TravellerTable.traveller_id)
+        .filter(
+            TravellerTable.trip_id == trip_id,
+            TravellerTable.membership_status.in_(["ACTIVE", None]),
+            TravellerDocumentTable.verification_status != VerificationStatus.REJECTED.value,
+        )
+        .group_by(TravellerDocumentTable.document_type)
+        .all()
+    )
+    return {row[0]: row[1] for row in rows}
+
+
 # --- Aggregation ---
 
 def count_documents_by_traveller_and_type(db: Session, traveller_id: str, document_type: str) -> int:
