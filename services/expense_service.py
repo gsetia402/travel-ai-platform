@@ -22,6 +22,7 @@ from repositories.expense_repository import (
     expense_breakdown_by_trip,
 )
 from repositories.trip_repository import get_trip_by_id
+from services.storage_provider import get_storage_provider, _content_type_from_filename
 
 logger = logging.getLogger(__name__)
 
@@ -88,12 +89,22 @@ def get_financial_summary(db: Session, trip_id: str) -> FinancialSummaryResponse
     total_budget = trip.budget
     amount_spent = sum_expenses_by_trip(db, trip_id)
     expense_count = count_expenses_by_trip(db, trip_id)
+    breakdown = expense_breakdown_by_trip(db, trip_id)
+
+    expenses = get_expenses_by_trip(db, trip_id)
+    largest = max((e.amount for e in expenses), default=0.0)
+    avg = amount_spent / expense_count if expense_count > 0 else 0.0
+    utilization = round((amount_spent / total_budget) * 100, 1) if total_budget > 0 else 0.0
 
     return FinancialSummaryResponse(
         total_budget=total_budget,
         amount_spent=amount_spent,
         remaining_budget=total_budget - amount_spent,
         expense_count=expense_count,
+        utilization_pct=utilization,
+        average_expense=round(avg, 2),
+        largest_expense=largest,
+        category_breakdown=breakdown,
     )
 
 
@@ -102,6 +113,20 @@ def get_expense_breakdown(db: Session, trip_id: str) -> Dict[str, float]:
     if not trip:
         raise ValueError(f"Trip not found: {trip_id}")
     return expense_breakdown_by_trip(db, trip_id)
+
+
+def upload_receipt(db: Session, expense_id: str, file_name: str, file_content: bytes) -> ExpenseResponse:
+    expense = get_expense_by_id(db, expense_id)
+    if not expense:
+        raise ValueError(f"Expense not found: {expense_id}")
+
+    storage = get_storage_provider()
+    content_type = _content_type_from_filename(file_name)
+    key = f"receipts/{expense.trip_id}/{expense_id}/{file_name}"
+    storage.upload(key, file_content, content_type)
+
+    updated = update_expense(db, expense_id, {"receipt_path": key})
+    return ExpenseResponse.model_validate(updated)
 
 
 def get_budget_status(db: Session, trip_id: str) -> BudgetStatusResponse:

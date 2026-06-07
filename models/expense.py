@@ -12,10 +12,13 @@ from database import Base
 # --------------- Enums ---------------
 
 class ExpenseCategory(str, enum.Enum):
-    HOTEL = "HOTEL"
     TRANSPORT = "TRANSPORT"
+    ACCOMMODATION = "ACCOMMODATION"
     FOOD = "FOOD"
     ACTIVITIES = "ACTIVITIES"
+    PERMITS = "PERMITS"
+    EMERGENCY = "EMERGENCY"
+    HOTEL = "HOTEL"
     FLIGHTS = "FLIGHTS"
     INSURANCE = "INSURANCE"
     VISA = "VISA"
@@ -43,6 +46,7 @@ class ExpenseTable(Base):
     paid_by = Column(String, nullable=True)
     expense_date = Column(Date, nullable=True)
     notes = Column(String, nullable=True)
+    receipt_path = Column(String, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
 
@@ -78,6 +82,7 @@ class ExpenseResponse(BaseModel):
     paid_by: Optional[str] = None
     expense_date: Optional[date] = None
     notes: Optional[str] = None
+    receipt_path: Optional[str] = None
     created_at: Optional[datetime] = None
 
     class Config:
@@ -89,6 +94,10 @@ class FinancialSummaryResponse(BaseModel):
     amount_spent: float
     remaining_budget: float
     expense_count: int
+    utilization_pct: float = 0.0
+    average_expense: float = 0.0
+    largest_expense: float = 0.0
+    category_breakdown: Dict[str, float] = {}
 
 
 class BudgetStatusResponse(BaseModel):
