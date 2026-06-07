@@ -90,6 +90,7 @@ class ExpenseResponse(BaseModel):
 
 
 class FinancialSummaryResponse(BaseModel):
+    financial_model: str = "SPONSORED"
     total_budget: float
     amount_spent: float
     remaining_budget: float

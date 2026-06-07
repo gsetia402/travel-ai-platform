@@ -27,6 +27,7 @@ class TripTable(Base):
     days = Column(Integer, nullable=False)
     traveller_count = Column(Integer, nullable=False)
     budget = Column(Float, nullable=False)
+    financial_model = Column(String, nullable=False, default="SPONSORED")
     status = Column(String, nullable=False, default="DRAFT", index=True)
     created_at = Column(DateTime, server_default=func.now())
 
@@ -85,6 +86,12 @@ class MembershipAuditTable(Base):
 
 # --- Trip ---
 
+class FinancialModel(str):
+    SPONSORED = "SPONSORED"
+    FIXED_PACKAGE = "FIXED_PACKAGE"
+    SHARED_COST = "SHARED_COST"
+
+
 class TripCreateRequest(BaseModel):
     trip_name: str
     organization_name: str
@@ -96,6 +103,7 @@ class TripCreateRequest(BaseModel):
     days: int = Field(gt=0)
     traveller_count: int = Field(gt=0)
     budget: float = Field(gt=0)
+    financial_model: str = "SPONSORED"
 
 
 class TripUpdateRequest(BaseModel):
@@ -108,6 +116,7 @@ class TripUpdateRequest(BaseModel):
     days: Optional[int] = None
     traveller_count: Optional[int] = None
     budget: Optional[float] = None
+    financial_model: Optional[str] = None
     status: Optional[str] = None
 
 
@@ -123,6 +132,7 @@ class TripResponse(BaseModel):
     days: int
     traveller_count: int
     budget: float
+    financial_model: str = "SPONSORED"
     status: str = "DRAFT"
     created_at: Optional[datetime] = None
 

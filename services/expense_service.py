@@ -97,6 +97,7 @@ def get_financial_summary(db: Session, trip_id: str) -> FinancialSummaryResponse
     utilization = round((amount_spent / total_budget) * 100, 1) if total_budget > 0 else 0.0
 
     return FinancialSummaryResponse(
+        financial_model=trip.financial_model or "SPONSORED",
         total_budget=total_budget,
         amount_spent=amount_spent,
         remaining_budget=total_budget - amount_spent,
