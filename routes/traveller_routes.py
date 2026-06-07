@@ -62,8 +62,8 @@ def edit_traveller(traveller_id: str, request: TravellerUpdateRequest, db: Sessi
 @router.delete("/travellers/{traveller_id}", status_code=200)
 def delete_traveller(traveller_id: str, db: Session = Depends(get_db), user: UserTable = Depends(get_current_user)):
     try:
-        remove_traveller(db, traveller_id)
-        return {"message": f"Traveller {traveller_id} deleted successfully"}
+        remove_traveller(db, traveller_id, removed_by=str(user.user_id))
+        return {"message": f"Traveller {traveller_id} removed successfully"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -79,8 +79,8 @@ def bulk_delete_travellers(
     if not traveller_ids or not isinstance(traveller_ids, list):
         raise HTTPException(status_code=400, detail="traveller_ids must be a non-empty list")
     try:
-        count = remove_travellers_bulk(db, trip_id, traveller_ids)
-        return {"deleted": count, "requested": len(traveller_ids)}
+        count = remove_travellers_bulk(db, trip_id, traveller_ids, removed_by=str(getattr(trip, 'organization_id', '')))
+        return {"removed": count, "requested": len(traveller_ids)}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 

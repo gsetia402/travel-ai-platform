@@ -16,6 +16,7 @@ from models.traveller_portal import (
     TravellerRoomResponse,
     VisibilitySettingsRequest,
     VisibilitySettingsResponse,
+    OptOutRequest,
 )
 from models.document import DocumentUploadResponse, DocumentType, TravellerReadinessResponse
 from models.communication import InboxMessageResponse
@@ -80,6 +81,37 @@ def update_profile(
 @router.get("/trips", response_model=TravellerTripResponse)
 def trip_info(db: Session = Depends(get_db), traveller: TravellerTable = Depends(get_current_traveller)):
     return get_traveller_trip(db, traveller)
+
+
+@router.post("/opt-out")
+def opt_out_of_trip(
+    payload: OptOutRequest,
+    db: Session = Depends(get_db),
+    traveller: TravellerTable = Depends(get_current_traveller),
+):
+    """Allow a traveller to opt out of their trip."""
+    import uuid as _uuid
+    from datetime import datetime
+    from models.group_trip import MembershipAuditTable
+    if traveller.membership_status == "OPTED_OUT":
+        raise HTTPException(status_code=400, detail="Already opted out")
+    old_status = traveller.membership_status
+    traveller.membership_status = "OPTED_OUT"
+    traveller.participation_status = "OPTED_OUT"
+    traveller.opt_out_reason = payload.reason
+    traveller.membership_updated_at = datetime.utcnow()
+    traveller.membership_updated_by = traveller.traveller_id
+    db.add(MembershipAuditTable(
+        id=str(_uuid.uuid4()),
+        traveller_id=traveller.traveller_id,
+        trip_id=traveller.trip_id,
+        old_status=old_status,
+        new_status="OPTED_OUT",
+        reason=payload.reason,
+        updated_by=traveller.traveller_id,
+    ))
+    db.commit()
+    return {"status": "OPTED_OUT", "message": "You have opted out of this trip."}
 
 
 # ---------- Itinerary ----------

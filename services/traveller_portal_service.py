@@ -116,6 +116,8 @@ def get_traveller_profile(traveller: TravellerTable) -> TravellerMeResponse:
         passport_number=traveller.passport_number,
         nationality=traveller.nationality,
         participation_status=traveller.participation_status,
+        membership_status=traveller.membership_status,
+        opt_out_reason=traveller.opt_out_reason,
     )
 
 

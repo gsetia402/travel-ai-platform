@@ -195,7 +195,7 @@ def self_register(db: Session, code: str, request: SelfRegisterRequest) -> Trave
         dietary_preferences=request.dietary_preferences,
         passport_number=request.passport_number,
         nationality=request.nationality,
-        participation_status="CONFIRMED",
+        participation_status="ACTIVE",
     )
 
     traveller = add_traveller(db, trip_id, create_req)

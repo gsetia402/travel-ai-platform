@@ -306,7 +306,8 @@ def api_sync_directory_to_trip(
                     emergency_contact_name=master.emergency_contact_name,
                     emergency_contact_phone=master.emergency_contact_phone,
                     medical_conditions=master.medical_conditions,
-                    participation_status="INVITED",
+                    participation_status="ACTIVE",
+                    membership_status="ACTIVE",
                 ))
                 db.flush()
                 synced += 1

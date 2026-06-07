@@ -250,7 +250,8 @@ def add_group_to_trip(db: Session, org_id: str, trip_id: str, group_id: str) -> 
                 emergency_contact_name=m.emergency_contact_name,
                 emergency_contact_phone=m.emergency_contact_phone,
                 medical_conditions=m.medical_conditions,
-                participation_status="INVITED",
+                participation_status="ACTIVE",
+                membership_status="ACTIVE",
             ))
         added += 1
     db.commit()

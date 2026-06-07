@@ -4,7 +4,8 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
-from models.group_trip import TravellerTable, TravellerCreateRequest, TravellerUpdateRequest
+from datetime import datetime
+from models.group_trip import TravellerTable, TravellerCreateRequest, TravellerUpdateRequest, MembershipAuditTable
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,8 @@ def add_traveller(db: Session, trip_id: str, request: TravellerCreateRequest) ->
         dietary_preferences=request.dietary_preferences,
         passport_number=request.passport_number,
         nationality=request.nationality,
-        participation_status=request.participation_status or "INVITED",
+        participation_status="ACTIVE",
+        membership_status="ACTIVE",
     )
     db.add(traveller)
     db.commit()
@@ -64,7 +66,8 @@ def add_travellers_bulk(db: Session, trip_id: str, travellers: List[TravellerCre
             dietary_preferences=req.dietary_preferences,
             passport_number=req.passport_number,
             nationality=req.nationality,
-            participation_status=req.participation_status or "INVITED",
+            participation_status="ACTIVE",
+            membership_status="ACTIVE",
         )
         records.append(record)
     db.add_all(records)
@@ -77,28 +80,61 @@ def get_travellers_by_trip(db: Session, trip_id: str) -> List[TravellerTable]:
     return db.query(TravellerTable).filter(TravellerTable.trip_id == trip_id).all()
 
 
+def count_travellers_by_membership(db: Session, trip_id: str, status: str) -> int:
+    return db.query(TravellerTable).filter(
+        TravellerTable.trip_id == trip_id,
+        TravellerTable.membership_status == status,
+    ).count()
+
+
 def get_traveller_by_id(db: Session, traveller_id: str) -> Optional[TravellerTable]:
     return db.query(TravellerTable).filter(TravellerTable.traveller_id == traveller_id).first()
 
 
-def delete_traveller(db: Session, traveller_id: str) -> bool:
+def delete_traveller(db: Session, traveller_id: str, removed_by: str = None) -> bool:
     traveller = get_traveller_by_id(db, traveller_id)
     if not traveller:
         return False
-    db.delete(traveller)
+    old_status = traveller.membership_status
+    traveller.membership_status = "REMOVED_BY_ORGANIZER"
+    traveller.participation_status = "REMOVED_BY_ORGANIZER"
+    traveller.membership_updated_at = datetime.utcnow()
+    traveller.membership_updated_by = removed_by
+    db.add(MembershipAuditTable(
+        id=str(uuid.uuid4()),
+        traveller_id=traveller_id,
+        trip_id=traveller.trip_id,
+        old_status=old_status,
+        new_status="REMOVED_BY_ORGANIZER",
+        updated_by=removed_by,
+    ))
     db.commit()
-    logger.info(f"Deleted traveller: {traveller_id}")
+    logger.info(f"Soft-removed traveller: {traveller_id}")
     return True
 
 
-def delete_travellers_bulk(db: Session, trip_id: str, traveller_ids: List[str]) -> int:
-    count = db.query(TravellerTable).filter(
+def delete_travellers_bulk(db: Session, trip_id: str, traveller_ids: List[str], removed_by: str = None) -> int:
+    travellers = db.query(TravellerTable).filter(
         TravellerTable.traveller_id.in_(traveller_ids),
         TravellerTable.trip_id == trip_id,
-    ).delete(synchronize_session=False)
+    ).all()
+    for t in travellers:
+        old_status = t.membership_status
+        t.membership_status = "REMOVED_BY_ORGANIZER"
+        t.participation_status = "REMOVED_BY_ORGANIZER"
+        t.membership_updated_at = datetime.utcnow()
+        t.membership_updated_by = removed_by
+        db.add(MembershipAuditTable(
+            id=str(uuid.uuid4()),
+            traveller_id=t.traveller_id,
+            trip_id=trip_id,
+            old_status=old_status,
+            new_status="REMOVED_BY_ORGANIZER",
+            updated_by=removed_by,
+        ))
     db.commit()
-    logger.info(f"Bulk deleted {count} travellers from trip {trip_id}")
-    return count
+    logger.info(f"Bulk soft-removed {len(travellers)} travellers from trip {trip_id}")
+    return len(travellers)
 
 
 def count_travellers_by_trip(db: Session, trip_id: str) -> int:

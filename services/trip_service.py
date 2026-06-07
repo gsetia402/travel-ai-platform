@@ -20,6 +20,7 @@ from repositories.trip_repository import (
 from repositories.traveller_repository import (
     count_travellers_by_trip,
     count_travellers_by_status,
+    count_travellers_by_membership,
     count_travellers_with_medical,
     count_travellers_with_special_requirements,
 )
@@ -76,6 +77,9 @@ def get_trip_summary(db: Session, trip_id: str) -> TripSummaryResponse:
 
     confirmed = count_travellers_by_status(db, trip_id, "CONFIRMED")
     invited = count_travellers_by_status(db, trip_id, "INVITED")
+    active_members = count_travellers_by_membership(db, trip_id, "ACTIVE")
+    opted_out = count_travellers_by_membership(db, trip_id, "OPTED_OUT")
+    removed = count_travellers_by_membership(db, trip_id, "REMOVED_BY_ORGANIZER")
     pending_consents = count_consents_by_trip_and_status(db, trip_id, "PENDING")
     approved_consents = count_consents_by_trip_and_status(db, trip_id, "APPROVED")
 
@@ -91,6 +95,9 @@ def get_trip_summary(db: Session, trip_id: str) -> TripSummaryResponse:
         unallocated_travellers=unallocated,
         confirmed_travellers=confirmed,
         pending_confirmations=invited,
+        active_travellers=active_members,
+        opted_out_travellers=opted_out,
+        removed_travellers=removed,
         pending_consents=pending_consents,
         approved_consents=approved_consents,
         total_budget=trip.budget,

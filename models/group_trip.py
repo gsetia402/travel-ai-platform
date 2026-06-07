@@ -58,10 +58,27 @@ class TravellerTable(Base):
     dietary_preferences = Column(String, nullable=True)
     passport_number = Column(String, nullable=True)
     nationality = Column(String, nullable=True)
-    participation_status = Column(String, nullable=True, default="INVITED", index=True)
+    participation_status = Column(String, nullable=True, default="ACTIVE", index=True)
+    membership_status = Column(String, nullable=True, default="ACTIVE", index=True)
+    membership_updated_at = Column(DateTime, nullable=True)
+    membership_updated_by = Column(String, nullable=True)
+    opt_out_reason = Column(String, nullable=True)
 
     trip = relationship("TripTable", back_populates="travellers")
     consents = relationship("ConsentTable", back_populates="traveller", cascade="all, delete-orphan")
+
+
+class MembershipAuditTable(Base):
+    __tablename__ = "membership_audit"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    traveller_id = Column(String, ForeignKey("travellers.traveller_id", ondelete="CASCADE"), nullable=False, index=True)
+    trip_id = Column(String, nullable=False, index=True)
+    old_status = Column(String, nullable=True)
+    new_status = Column(String, nullable=False)
+    reason = Column(String, nullable=True)
+    updated_by = Column(String, nullable=True)
+    updated_at = Column(DateTime, server_default=func.now())
 
 
 # --------------- Pydantic Request / Response Models ---------------
@@ -134,7 +151,7 @@ class TravellerCreateRequest(BaseModel):
     dietary_preferences: Optional[str] = None
     passport_number: Optional[str] = None
     nationality: Optional[str] = None
-    participation_status: Optional[str] = "INVITED"
+    participation_status: Optional[str] = "ACTIVE"
 
 
 class TravellerResponse(BaseModel):
@@ -159,6 +176,9 @@ class TravellerResponse(BaseModel):
     passport_number: Optional[str] = None
     nationality: Optional[str] = None
     participation_status: Optional[str] = None
+    membership_status: Optional[str] = None
+    opt_out_reason: Optional[str] = None
+    membership_updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -184,6 +204,7 @@ class TravellerUpdateRequest(BaseModel):
     passport_number: Optional[str] = None
     nationality: Optional[str] = None
     participation_status: Optional[str] = None
+    membership_status: Optional[str] = None
 
 
 # --- CSV Upload ---
@@ -209,6 +230,9 @@ class TripSummaryResponse(BaseModel):
     unallocated_travellers: int = 0
     confirmed_travellers: int = 0
     pending_confirmations: int = 0
+    active_travellers: int = 0
+    opted_out_travellers: int = 0
+    removed_travellers: int = 0
     pending_consents: int = 0
     approved_consents: int = 0
     total_budget: float = 0

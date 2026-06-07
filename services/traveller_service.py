@@ -66,21 +66,21 @@ def update_traveller(db: Session, traveller_id: str, request: TravellerUpdateReq
     return TravellerResponse.model_validate(traveller)
 
 
-def remove_traveller(db: Session, traveller_id: str) -> bool:
-    deleted = delete_traveller(db, traveller_id)
+def remove_traveller(db: Session, traveller_id: str, removed_by: str = None) -> bool:
+    deleted = delete_traveller(db, traveller_id, removed_by=removed_by)
     if not deleted:
         raise ValueError(f"Traveller not found: {traveller_id}")
     return True
 
 
-def remove_travellers_bulk(db: Session, trip_id: str, traveller_ids: List[str]) -> int:
+def remove_travellers_bulk(db: Session, trip_id: str, traveller_ids: List[str], removed_by: str = None) -> int:
     trip = get_trip_by_id(db, trip_id)
     if not trip:
         raise ValueError(f"Trip not found: {trip_id}")
     if not traveller_ids:
         raise ValueError("No traveller IDs provided")
-    count = delete_travellers_bulk(db, trip_id, traveller_ids)
-    logger.info(f"Bulk deleted {count}/{len(traveller_ids)} travellers from trip {trip_id}")
+    count = delete_travellers_bulk(db, trip_id, traveller_ids, removed_by=removed_by)
+    logger.info(f"Bulk removed {count}/{len(traveller_ids)} travellers from trip {trip_id}")
     return count
 
 
@@ -147,7 +147,7 @@ def upload_travellers_csv(db: Session, trip_id: str, file_content: bytes) -> CSV
                 dietary_preferences=cleaned.get("dietary_preferences") or None,
                 passport_number=cleaned.get("passport_number") or None,
                 nationality=cleaned.get("nationality") or None,
-                participation_status=cleaned.get("participation_status") or "INVITED",
+                participation_status="ACTIVE",
             )
         )
 

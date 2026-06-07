@@ -59,6 +59,12 @@ class TravellerMeResponse(BaseModel):
     passport_number: Optional[str] = None
     nationality: Optional[str] = None
     participation_status: Optional[str] = None
+    membership_status: Optional[str] = None
+    opt_out_reason: Optional[str] = None
+
+
+class OptOutRequest(BaseModel):
+    reason: Optional[str] = None
 
 
 class TravellerProfileUpdateRequest(BaseModel):
