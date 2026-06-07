@@ -10,11 +10,13 @@ from models.group_trip import (
     TravellerCreateRequest,
     TravellerUpdateRequest,
     TravellerResponse,
+    TravellerEnrichedResponse,
     CSVUploadResponse,
 )
 from services.traveller_service import (
     create_traveller,
     list_travellers,
+    list_travellers_enriched,
     get_single_traveller,
     update_traveller,
     remove_traveller,
@@ -25,6 +27,18 @@ from services.auth_service import get_current_user
 from dependencies import require_trip_access
 
 router = APIRouter(tags=["Travellers"])
+
+
+@router.get("/all-travellers")
+def get_all_travellers_across_trips(db: Session = Depends(get_db), user: UserTable = Depends(get_current_user)):
+    from repositories.trip_repository import get_all_trips
+    trips = get_all_trips(db, organization_id=user.organization_id)
+    all_travellers = []
+    for trip in trips:
+        travellers = list_travellers(db, trip.trip_id)
+        for t in travellers:
+            all_travellers.append({**t.model_dump(), "trip_name": trip.trip_name})
+    return all_travellers
 
 
 @router.post("/trips/{trip_id}/travellers", response_model=TravellerResponse, status_code=201)
@@ -39,6 +53,14 @@ def add_traveller(trip_id: str, request: TravellerCreateRequest, db: Session = D
 def get_travellers(trip_id: str, db: Session = Depends(get_db), trip: TripTable = Depends(require_trip_access)):
     try:
         return list_travellers(db, trip_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/trips/{trip_id}/travellers-enriched", response_model=List[TravellerEnrichedResponse])
+def get_travellers_enriched(trip_id: str, db: Session = Depends(get_db), trip: TripTable = Depends(require_trip_access)):
+    try:
+        return list_travellers_enriched(db, trip_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 

@@ -184,6 +184,47 @@ class TravellerResponse(BaseModel):
         from_attributes = True
 
 
+class TravellerReadinessSummary(BaseModel):
+    profile_completed: bool = False
+    consents_completed: bool = False
+    documents_completed: bool = False
+    trip_ready: bool = False
+    missing_items: List[str] = []
+    completed_count: int = 0
+    total_requirements: int = 0
+
+
+class TravellerEnrichedResponse(BaseModel):
+    traveller_id: str
+    trip_id: str
+    first_name: str
+    last_name: str
+    phone: str
+    email: str
+    gender: Optional[str] = None
+    department: Optional[str] = None
+    city: Optional[str] = None
+    date_of_birth: Optional[date] = None
+    age: Optional[int] = None
+    emergency_contact_name: Optional[str] = None
+    emergency_contact_phone: Optional[str] = None
+    emergency_relationship: Optional[str] = None
+    medical_conditions: Optional[str] = None
+    allergies: Optional[str] = None
+    special_requirements: Optional[str] = None
+    dietary_preferences: Optional[str] = None
+    passport_number: Optional[str] = None
+    nationality: Optional[str] = None
+    participation_status: Optional[str] = None
+    membership_status: Optional[str] = None
+    opt_out_reason: Optional[str] = None
+    membership_updated_at: Optional[datetime] = None
+    readiness: Optional[TravellerReadinessSummary] = None
+
+    class Config:
+        from_attributes = True
+
+
 class TravellerUpdateRequest(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None

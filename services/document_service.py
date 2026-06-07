@@ -23,6 +23,7 @@ from repositories.document_repository import (
     reject_document,
     add_requirement,
     get_requirements_by_trip,
+    get_all_documents_by_trip,
     count_uploaded_by_trip,
     count_verified_by_trip,
     count_pending_by_trip,
@@ -244,3 +245,33 @@ def get_trip_document_stats(db: Session, trip_id: str) -> TripDocumentStatsRespo
         ))
 
     return TripDocumentStatsResponse(total_travellers=total, document_types=doc_stats)
+
+
+# --- Bulk Trip Documents (all travellers) ---
+
+def get_trip_all_documents(db: Session, trip_id: str) -> dict:
+    """Return all documents for all travellers in a trip, grouped by traveller_id."""
+    from repositories.traveller_repository import get_travellers_by_trip
+
+    trip = get_trip_by_id(db, trip_id)
+    if not trip:
+        raise ValueError(f"Trip not found: {trip_id}")
+
+    travellers = get_travellers_by_trip(db, trip_id)
+    all_docs = get_all_documents_by_trip(db, trip_id)
+
+    docs_by_traveller: dict = {}
+    for d in all_docs:
+        docs_by_traveller.setdefault(d.traveller_id, []).append(
+            DocumentUploadResponse.model_validate(d).model_dump()
+        )
+
+    results = []
+    for t in travellers:
+        results.append({
+            "traveller_id": t.traveller_id,
+            "first_name": t.first_name,
+            "last_name": t.last_name,
+            "docs": docs_by_traveller.get(t.traveller_id, []),
+        })
+    return {"travellers": results}

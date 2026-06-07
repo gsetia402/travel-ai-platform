@@ -108,6 +108,25 @@ def get_trip_summary(db: Session, trip_id: str) -> TripSummaryResponse:
     )
 
 
+def get_all_trips_with_summaries(db: Session, organization_id: str = None) -> List[dict]:
+    """Return all trips with their summary data in one call — eliminates N+1 on Dashboard."""
+    trips = get_all_trips(db, organization_id=organization_id)
+    results = []
+    for trip in trips:
+        try:
+            summary = get_trip_summary(db, trip.trip_id)
+            results.append({
+                **TripResponse.model_validate(trip).model_dump(),
+                "summary": summary.model_dump(),
+            })
+        except Exception:
+            results.append({
+                **TripResponse.model_validate(trip).model_dump(),
+                "summary": None,
+            })
+    return results
+
+
 def get_risk_summary(db: Session, trip_id: str) -> RiskSummaryResponse:
     trip = get_trip_by_id(db, trip_id)
     if not trip:

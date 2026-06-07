@@ -22,6 +22,7 @@ from services.trip_service import (
     remove_trip,
     get_trip_summary,
     get_risk_summary,
+    get_all_trips_with_summaries,
 )
 from services.auth_service import get_current_user
 from dependencies import require_trip_access
@@ -40,6 +41,11 @@ def create_trip(request: TripCreateRequest, db: Session = Depends(get_db), user:
 @router.get("/trips", response_model=List[TripResponse])
 def get_all_trips(db: Session = Depends(get_db), user: UserTable = Depends(get_current_user)):
     return list_trips(db, organization_id=user.organization_id)
+
+
+@router.get("/trips-overview")
+def trips_overview(db: Session = Depends(get_db), user: UserTable = Depends(get_current_user)):
+    return get_all_trips_with_summaries(db, organization_id=user.organization_id)
 
 
 @router.get("/trips/{trip_id}", response_model=TripResponse)

@@ -26,6 +26,7 @@ from services.document_service import (
     get_document_summary,
     get_traveller_readiness,
     get_trip_document_stats,
+    get_trip_all_documents,
     ConflictError,
 )
 from services.auth_service import get_current_user
@@ -181,5 +182,13 @@ def traveller_readiness(traveller_id: str, db: Session = Depends(get_db), user: 
 def trip_document_stats(trip_id: str, db: Session = Depends(get_db), trip: TripTable = Depends(require_trip_access)):
     try:
         return get_trip_document_stats(db, trip_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/trips/{trip_id}/all-documents")
+def trip_all_documents(trip_id: str, db: Session = Depends(get_db), trip: TripTable = Depends(require_trip_access)):
+    try:
+        return get_trip_all_documents(db, trip_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

@@ -9,6 +9,8 @@ from models.group_trip import (
     TravellerCreateRequest,
     TravellerUpdateRequest,
     TravellerResponse,
+    TravellerEnrichedResponse,
+    TravellerReadinessSummary,
     CSVUploadResponse,
 )
 from repositories.traveller_repository import (
@@ -162,3 +164,37 @@ def upload_travellers_csv(db: Session, trip_id: str, file_content: bytes) -> CSV
         failed=len(errors),
         errors=errors if errors else None,
     )
+
+
+def list_travellers_enriched(db: Session, trip_id: str) -> List[TravellerEnrichedResponse]:
+    """Return all travellers for a trip with readiness data included — single query pattern."""
+    from services.document_service import get_traveller_readiness
+
+    trip = get_trip_by_id(db, trip_id)
+    if not trip:
+        raise ValueError(f"Trip not found: {trip_id}")
+
+    travellers = get_travellers_by_trip(db, trip_id)
+    results = []
+    for t in travellers:
+        readiness_data = None
+        try:
+            r = get_traveller_readiness(db, t.traveller_id)
+            readiness_data = TravellerReadinessSummary(
+                profile_completed=r.profile_completed,
+                consents_completed=r.consents_completed,
+                documents_completed=r.documents_completed,
+                trip_ready=r.trip_ready,
+                missing_items=r.missing_items,
+                completed_count=r.completed_count,
+                total_requirements=r.total_requirements,
+            )
+        except Exception:
+            pass
+
+        enriched = TravellerEnrichedResponse(
+            **TravellerResponse.model_validate(t).model_dump(),
+            readiness=readiness_data,
+        )
+        results.append(enriched)
+    return results

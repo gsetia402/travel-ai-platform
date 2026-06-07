@@ -91,6 +91,17 @@ def get_requirements_by_trip(db: Session, trip_id: str) -> List[TripDocumentRequ
     return db.query(TripDocumentRequirementTable).filter(TripDocumentRequirementTable.trip_id == trip_id).all()
 
 
+def get_all_documents_by_trip(db: Session, trip_id: str) -> List[TravellerDocumentTable]:
+    """Get all documents for all travellers in a trip in a single query."""
+    from models.group_trip import TravellerTable
+    return (
+        db.query(TravellerDocumentTable)
+        .join(TravellerTable, TravellerDocumentTable.traveller_id == TravellerTable.traveller_id)
+        .filter(TravellerTable.trip_id == trip_id)
+        .all()
+    )
+
+
 # --- Aggregation ---
 
 def count_documents_by_traveller_and_type(db: Session, traveller_id: str, document_type: str) -> int:
