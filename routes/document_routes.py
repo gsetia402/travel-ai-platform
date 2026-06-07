@@ -13,6 +13,7 @@ from models.document import (
     RequirementResponse,
     DocumentSummaryResponse,
     TravellerReadinessResponse,
+    TripDocumentStatsResponse,
     DocumentType,
 )
 from services.document_service import (
@@ -24,6 +25,7 @@ from services.document_service import (
     list_trip_requirements,
     get_document_summary,
     get_traveller_readiness,
+    get_trip_document_stats,
     ConflictError,
 )
 from services.auth_service import get_current_user
@@ -171,5 +173,13 @@ def document_summary(trip_id: str, db: Session = Depends(get_db), trip: TripTabl
 def traveller_readiness(traveller_id: str, db: Session = Depends(get_db), user: UserTable = Depends(get_current_user)):
     try:
         return get_traveller_readiness(db, traveller_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/trips/{trip_id}/document-stats", response_model=TripDocumentStatsResponse)
+def trip_document_stats(trip_id: str, db: Session = Depends(get_db), trip: TripTable = Depends(require_trip_access)):
+    try:
+        return get_trip_document_stats(db, trip_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

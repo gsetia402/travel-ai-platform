@@ -11,6 +11,8 @@ from models.document import (
     RequirementResponse,
     DocumentSummaryResponse,
     TravellerReadinessResponse,
+    TripDocumentStatsResponse,
+    DocumentTypeStats,
     VerificationStatus,
 )
 from repositories.document_repository import (
@@ -145,23 +147,38 @@ def get_traveller_readiness(db: Session, traveller_id: str) -> TravellerReadines
     if not traveller:
         raise ValueError(f"Traveller not found: {traveller_id}")
 
-    profile_completed = all([
-        traveller.first_name,
-        traveller.last_name,
-        traveller.phone,
-        traveller.email,
-        traveller.emergency_contact_name,
-        traveller.emergency_contact_phone,
-    ])
+    missing_items = []
+
+    profile_fields = {
+        "First Name": traveller.first_name,
+        "Last Name": traveller.last_name,
+        "Phone": traveller.phone,
+        "Email": traveller.email,
+        "Emergency Contact Name": traveller.emergency_contact_name,
+        "Emergency Contact Phone": traveller.emergency_contact_phone,
+    }
+    for label, val in profile_fields.items():
+        if not val:
+            missing_items.append(label)
+    profile_completed = len([v for v in profile_fields.values() if v]) == len(profile_fields)
 
     pending_consents = count_consents_by_traveller_and_status(db, traveller_id, "PENDING")
     consents_completed = pending_consents == 0
+    if not consents_completed:
+        missing_items.append(f"Pending Consents ({pending_consents})")
 
     trip_id = traveller.trip_id
     reqs = get_requirements_by_trip(db, trip_id)
     mandatory_types = {r.document_type for r in reqs if r.mandatory}
     uploaded_types = set(get_uploaded_types_for_traveller(db, traveller_id))
-    documents_completed = mandatory_types.issubset(uploaded_types)
+    missing_docs = mandatory_types - uploaded_types
+    for doc_type in sorted(missing_docs):
+        missing_items.append(doc_type.replace("_", " ").title())
+    documents_completed = len(missing_docs) == 0
+
+    # Count totals: profile fields + consents + mandatory docs
+    total_requirements = len(profile_fields) + (1 if mandatory_types else 0) + len(mandatory_types)
+    completed_count = total_requirements - len(missing_items)
 
     trip_ready = profile_completed and consents_completed and documents_completed
 
@@ -170,6 +187,9 @@ def get_traveller_readiness(db: Session, traveller_id: str) -> TravellerReadines
         consents_completed=consents_completed,
         documents_completed=documents_completed,
         trip_ready=trip_ready,
+        missing_items=missing_items,
+        completed_count=completed_count,
+        total_requirements=total_requirements,
     )
 
 
@@ -192,3 +212,35 @@ def calculate_trip_readiness_percentage(db: Session, trip_id: str) -> float:
             pass
 
     return round((ready_count / len(travellers)) * 100, 2)
+
+
+# --- Per-Document-Type Trip Stats ---
+
+def get_trip_document_stats(db: Session, trip_id: str) -> TripDocumentStatsResponse:
+    from repositories.traveller_repository import get_travellers_by_trip
+
+    trip = get_trip_by_id(db, trip_id)
+    if not trip:
+        raise ValueError(f"Trip not found: {trip_id}")
+
+    travellers = get_travellers_by_trip(db, trip_id)
+    active_travellers = [t for t in travellers if (t.membership_status or 'ACTIVE') == 'ACTIVE']
+    total = len(active_travellers)
+
+    reqs = get_requirements_by_trip(db, trip_id)
+    doc_stats = []
+    for req in reqs:
+        uploaded_count = 0
+        for t in active_travellers:
+            types = set(get_uploaded_types_for_traveller(db, t.traveller_id))
+            if req.document_type in types:
+                uploaded_count += 1
+        doc_stats.append(DocumentTypeStats(
+            document_type=req.document_type,
+            mandatory=req.mandatory,
+            uploaded_count=uploaded_count,
+            missing_count=total - uploaded_count,
+            total_travellers=total,
+        ))
+
+    return TripDocumentStatsResponse(total_travellers=total, document_types=doc_stats)

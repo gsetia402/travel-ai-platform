@@ -114,3 +114,19 @@ class TravellerReadinessResponse(BaseModel):
     consents_completed: bool
     documents_completed: bool
     trip_ready: bool
+    missing_items: List[str] = []
+    completed_count: int = 0
+    total_requirements: int = 0
+
+
+class DocumentTypeStats(BaseModel):
+    document_type: str
+    mandatory: bool
+    uploaded_count: int
+    missing_count: int
+    total_travellers: int
+
+
+class TripDocumentStatsResponse(BaseModel):
+    total_travellers: int
+    document_types: List[DocumentTypeStats]
