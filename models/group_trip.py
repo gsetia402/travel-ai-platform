@@ -88,8 +88,7 @@ class MembershipAuditTable(Base):
 
 class FinancialModel(str):
     SPONSORED = "SPONSORED"
-    PACKAGE = "PACKAGE"
-    VARIABLE_BUDGET = "VARIABLE_BUDGET"
+    TRAVELLER_FUNDED = "TRAVELLER_FUNDED"
 
 
 class TripCreateRequest(BaseModel):
