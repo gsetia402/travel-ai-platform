@@ -12,7 +12,7 @@ from services.auth_service import get_current_user
 from models.traveller_directory import (
     TravellerMasterCreate, TravellerMasterUpdate, TravellerMasterResponse,
     GroupCreate, GroupUpdate, GroupResponse, GroupDetailResponse,
-    TripTravellerResponse,
+    TripTravellerResponse, TripTravellerTable, TravellerMasterTable,
 )
 from services.traveller_directory_service import (
     create_master_traveller, list_master_travellers, get_master_traveller,
@@ -277,10 +277,9 @@ def api_sync_directory_to_trip(
         master = db.query(TravellerMasterTable).filter(TravellerMasterTable.master_id == mapping.master_id).first()
         if not master:
             continue
-        # Need at least first_name to create a useful record
         if not master.first_name:
             continue
-        # Check if legacy record already exists by matching name+trip
+        # Check if legacy record already exists by matching name+trip or phone
         legacy_exists = db.query(TravellerTable).filter(
             TravellerTable.trip_id == trip_id,
             TravellerTable.first_name == master.first_name,
@@ -291,30 +290,29 @@ def api_sync_directory_to_trip(
                 TravellerTable.trip_id == trip_id, TravellerTable.phone == master.phone
             ).first() is not None
         if not legacy_exists:
-            try:
-                db.add(TravellerTable(
-                    traveller_id=str(uuid.uuid4()),
-                    trip_id=trip_id,
-                    first_name=master.first_name,
-                    last_name=master.last_name or "",
-                    phone=master.phone or f"dir-{master.master_id[:8]}",
-                    email=master.email or f"dir-{master.master_id[:8]}@placeholder.local",
-                    gender=master.gender,
-                    city=master.city,
-                    nationality=master.nationality,
-                    date_of_birth=master.date_of_birth,
-                    emergency_contact_name=master.emergency_contact_name,
-                    emergency_contact_phone=master.emergency_contact_phone,
-                    medical_conditions=master.medical_conditions,
-                    participation_status="ACTIVE",
-                    membership_status="ACTIVE",
-                ))
-                db.flush()
-                synced += 1
-            except Exception:
-                db.rollback()
-                continue
-    db.commit()
+            db.add(TravellerTable(
+                traveller_id=str(uuid.uuid4()),
+                trip_id=trip_id,
+                first_name=master.first_name,
+                last_name=master.last_name or "",
+                phone=master.phone or f"dir-{master.master_id[:8]}",
+                email=master.email or f"dir-{master.master_id[:8]}@placeholder.local",
+                gender=master.gender,
+                city=master.city,
+                nationality=master.nationality,
+                date_of_birth=master.date_of_birth,
+                emergency_contact_name=master.emergency_contact_name,
+                emergency_contact_phone=master.emergency_contact_phone,
+                medical_conditions=master.medical_conditions,
+                participation_status="ACTIVE",
+                membership_status="ACTIVE",
+            ))
+            synced += 1
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Sync failed: {str(e)}")
     return {"synced": synced, "total_mappings": len(mappings)}
 
 
