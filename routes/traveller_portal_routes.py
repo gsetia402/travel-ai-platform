@@ -193,6 +193,70 @@ def readiness(db: Session = Depends(get_db), traveller: TravellerTable = Depends
     return get_traveller_readiness(db, traveller.traveller_id)
 
 
+# ---------- Payments ----------
+
+@router.get("/payment-summary")
+def payment_summary(db: Session = Depends(get_db), traveller: TravellerTable = Depends(get_current_traveller)):
+    """Get the current traveller's payment summary (expected, paid, outstanding, status)."""
+    from services.payment_service import get_traveller_payment_summaries
+    summaries = get_traveller_payment_summaries(db, traveller.trip_id)
+    my_summary = next((s for s in summaries if s.traveller_id == traveller.traveller_id), None)
+    if not my_summary:
+        return {"traveller_id": traveller.traveller_id, "expected_amount": 0, "amount_paid": 0, "outstanding_amount": 0, "payment_status": "PENDING"}
+    return my_summary
+
+
+@router.get("/payment-config")
+def payment_config(db: Session = Depends(get_db), traveller: TravellerTable = Depends(get_current_traveller)):
+    """Get payment config for this trip."""
+    from services.payment_service import get_config
+    return get_config(db, traveller.trip_id)
+
+
+@router.get("/payments")
+def my_payments(db: Session = Depends(get_db), traveller: TravellerTable = Depends(get_current_traveller)):
+    """Get the current traveller's payment history."""
+    from services.payment_service import list_traveller_payments
+    return list_traveller_payments(db, traveller.trip_id, traveller.traveller_id)
+
+
+@router.post("/payments", status_code=201)
+def submit_payment(
+    request: dict,
+    db: Session = Depends(get_db),
+    traveller: TravellerTable = Depends(get_current_traveller),
+):
+    """Submit a payment from the traveller portal."""
+    from models.payment import PaymentCreateRequest
+    from services.payment_service import add_payment
+    payload = PaymentCreateRequest(
+        traveller_id=traveller.traveller_id,
+        payment_type=request.get("payment_type", "TRAVELLER_PAYMENT"),
+        amount=request.get("amount", 0),
+        payment_date=request.get("payment_date"),
+        notes=request.get("notes"),
+    )
+    return add_payment(db, traveller.trip_id, payload)
+
+
+@router.post("/payments/{payment_id}/proof")
+async def upload_payment_proof_traveller(
+    payment_id: str,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    traveller: TravellerTable = Depends(get_current_traveller),
+):
+    """Upload payment proof from traveller portal."""
+    from services.payment_service import upload_payment_proof
+    ext = file.filename.rsplit(".", 1)[-1].lower() if file.filename and "." in file.filename else ""
+    if ext not in {"pdf", "jpg", "jpeg", "png"}:
+        raise HTTPException(status_code=400, detail="File type not allowed")
+    data = await file.read()
+    if len(data) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large. Max 10MB.")
+    return upload_payment_proof(db, payment_id, file.filename, data)
+
+
 # ---------- Visibility Settings (Coordinator) ----------
 
 @router.get("/visibility/{trip_id}", response_model=VisibilitySettingsResponse)

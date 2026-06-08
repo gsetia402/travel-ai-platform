@@ -85,9 +85,12 @@ def update_payment_config(db: Session, trip_id: str, request: PaymentConfigReque
 
 
 def get_config(db: Session, trip_id: str) -> PaymentConfigResponse:
-    config = get_payment_config(db, trip_id)
-    if config:
-        return PaymentConfigResponse.model_validate(config)
+    try:
+        config = get_payment_config(db, trip_id)
+        if config:
+            return PaymentConfigResponse.model_validate(config)
+    except Exception as e:
+        logger.warning(f"Could not load payment config for trip {trip_id}: {e}")
     return PaymentConfigResponse(trip_id=trip_id)
 
 
@@ -112,12 +115,22 @@ def _calc_expected_per_traveller(db: Session, trip_id: str):
 
 
 def get_traveller_payment_summaries(db: Session, trip_id: str) -> List[TravellerPaymentSummary]:
-    trip, config, travellers, expected_per, reg_fee = _calc_expected_per_traveller(db, trip_id)
+    try:
+        trip, config, travellers, expected_per, reg_fee = _calc_expected_per_traveller(db, trip_id)
+    except Exception as e:
+        logger.error(f"Error calculating expected per traveller for trip {trip_id}: {e}")
+        travellers = get_travellers_by_trip(db, trip_id)
+        expected_per = 0
+        reg_fee = 0
+
     total_expected = (expected_per or 0) + (reg_fee or 0)
 
     summaries = []
     for t in travellers:
-        paid = sum_approved_payments_by_traveller(db, trip_id, t.traveller_id)
+        try:
+            paid = sum_approved_payments_by_traveller(db, trip_id, t.traveller_id)
+        except Exception:
+            paid = 0
         outstanding = max(total_expected - paid, 0)
         if paid >= total_expected and total_expected > 0:
             status = "PAID"
@@ -127,7 +140,10 @@ def get_traveller_payment_summaries(db: Session, trip_id: str) -> List[Traveller
             status = "PENDING"
 
         reg_paid = paid >= reg_fee if reg_fee > 0 else True
-        last_date = last_payment_date_by_traveller(db, trip_id, t.traveller_id)
+        try:
+            last_date = last_payment_date_by_traveller(db, trip_id, t.traveller_id)
+        except Exception:
+            last_date = None
 
         summaries.append(TravellerPaymentSummary(
             traveller_id=t.traveller_id,
@@ -147,12 +163,25 @@ def get_payment_dashboard(db: Session, trip_id: str) -> PaymentDashboard:
     if not trip:
         raise ValueError("Trip not found")
 
-    expenses = sum_expenses_by_trip(db, trip_id)
-    amount_received = sum_approved_payments_by_trip(db, trip_id)
-    financial_model = trip.financial_model or "SPONSORED"
+    try:
+        expenses = sum_expenses_by_trip(db, trip_id)
+    except Exception:
+        expenses = 0
+    try:
+        amount_received = sum_approved_payments_by_trip(db, trip_id)
+    except Exception:
+        amount_received = 0
+    financial_model = getattr(trip, 'financial_model', None) or "SPONSORED"
 
     if financial_model == "TRAVELLER_FUNDED":
-        _, config, travellers, expected_per, reg_fee = _calc_expected_per_traveller(db, trip_id)
+        try:
+            _, config, travellers, expected_per, reg_fee = _calc_expected_per_traveller(db, trip_id)
+        except Exception as e:
+            logger.error(f"Dashboard calc error: {e}")
+            travellers = get_travellers_by_trip(db, trip_id)
+            expected_per = round((trip.budget or 0) / max(len(travellers), 1), 2)
+            reg_fee = 0
+
         total_expected_per = (expected_per or 0) + (reg_fee or 0)
         total_travellers = len(travellers)
         total_expected_all = total_expected_per * total_travellers
@@ -162,7 +191,10 @@ def get_payment_dashboard(db: Session, trip_id: str) -> PaymentDashboard:
 
         paid_count = partial_count = pending_count = 0
         for t in travellers:
-            t_paid = sum_approved_payments_by_traveller(db, trip_id, t.traveller_id)
+            try:
+                t_paid = sum_approved_payments_by_traveller(db, trip_id, t.traveller_id)
+            except Exception:
+                t_paid = 0
             if total_expected_per > 0 and t_paid >= total_expected_per:
                 paid_count += 1
             elif t_paid > 0:
@@ -172,7 +204,7 @@ def get_payment_dashboard(db: Session, trip_id: str) -> PaymentDashboard:
 
         return PaymentDashboard(
             financial_model=financial_model,
-            total_budget=trip.budget,
+            total_budget=trip.budget or 0,
             amount_received=amount_received,
             outstanding_amount=outstanding,
             expenses=expenses,
@@ -184,15 +216,21 @@ def get_payment_dashboard(db: Session, trip_id: str) -> PaymentDashboard:
             total_travellers=total_travellers,
         )
     else:
-        config = get_payment_config(db, trip_id)
+        try:
+            config = get_payment_config(db, trip_id)
+        except Exception:
+            config = None
         sponsor_commitment = config.sponsor_commitment if config else 0
-        sponsor_received = sum_sponsor_payments(db, trip_id)
+        try:
+            sponsor_received = sum_sponsor_payments(db, trip_id)
+        except Exception:
+            sponsor_received = 0
         sponsor_outstanding = max((sponsor_commitment or 0) - sponsor_received, 0)
         available_balance = amount_received - expenses
 
         return PaymentDashboard(
             financial_model=financial_model,
-            total_budget=trip.budget,
+            total_budget=trip.budget or 0,
             amount_received=amount_received,
             outstanding_amount=sponsor_outstanding,
             expenses=expenses,

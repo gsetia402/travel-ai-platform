@@ -187,6 +187,33 @@ def _run_sqlite_migrations():
         cur.execute("ALTER TABLE expenses ADD COLUMN receipt_path TEXT")
     conn.commit()
 
+    # Ensure payments table exists (for older DBs created before payment feature)
+    cur.execute("""CREATE TABLE IF NOT EXISTS payments (
+        payment_id TEXT PRIMARY KEY,
+        trip_id TEXT NOT NULL REFERENCES trips(trip_id) ON DELETE CASCADE,
+        traveller_id TEXT REFERENCES travellers(traveller_id) ON DELETE CASCADE,
+        payment_type TEXT NOT NULL,
+        amount REAL NOT NULL,
+        payment_date TEXT,
+        notes TEXT,
+        proof_path TEXT,
+        status TEXT NOT NULL DEFAULT 'APPROVED',
+        rejected_reason TEXT,
+        sponsor_name TEXT,
+        created_at TEXT DEFAULT (datetime('now'))
+    )""")
+    cur.execute("""CREATE TABLE IF NOT EXISTS trip_payment_config (
+        trip_id TEXT PRIMARY KEY REFERENCES trips(trip_id) ON DELETE CASCADE,
+        expected_amount_per_traveller REAL DEFAULT 0,
+        registration_fee_enabled INTEGER NOT NULL DEFAULT 0,
+        registration_fee_amount REAL DEFAULT 0,
+        sponsor_name TEXT,
+        sponsor_commitment REAL DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+    )""")
+    conn.commit()
+
     # Migrate document statuses: PENDING and VERIFIED → UPLOADED
     cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='traveller_documents'")
     if cur.fetchone():
