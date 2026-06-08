@@ -74,11 +74,14 @@ def create_tables():
 
 
 def validate_schema():
-    """Fail fast if PostgreSQL is missing required tables.
+    """Verify PostgreSQL schema and auto-create missing tables/columns.
 
-    Raises RuntimeError with clear instructions so operators know
-    exactly how to fix the database before the app serves traffic.
+    Instead of failing hard, we first run _pg_ensure_columns() to create
+    any missing tables, then verify everything is in order.
     """
+    # Auto-create missing tables and columns first
+    _pg_ensure_columns()
+
     from sqlalchemy import inspect as sa_inspect
     inspector = sa_inspect(engine)
     existing = set(inspector.get_table_names())
@@ -86,24 +89,25 @@ def validate_schema():
     missing = expected - existing
 
     if missing:
-        logger.error("=" * 60)
-        logger.error("PostgreSQL schema not initialized.")
-        logger.error(f"Missing {len(missing)} required tables:")
-        for table in sorted(missing):
-            logger.error(f"  - {table}")
-        logger.error("")
-        logger.error("Run:")
-        logger.error("  alembic upgrade head")
-        logger.error("=" * 60)
-        raise RuntimeError(
-            f"PostgreSQL schema not initialized — {len(missing)} tables missing. "
-            f"Run 'alembic upgrade head' to create them."
-        )
+        logger.warning(f"PostgreSQL has {len(missing)} missing tables after auto-migration: {sorted(missing)}")
+        logger.warning("Attempting to create via metadata.create_all()...")
+        Base.metadata.create_all(bind=engine)
+        # Re-check
+        inspector = sa_inspect(engine)
+        existing = set(inspector.get_table_names())
+        still_missing = expected - existing
+        if still_missing:
+            logger.error("=" * 60)
+            logger.error("PostgreSQL schema still incomplete after auto-migration.")
+            logger.error(f"Missing {len(still_missing)} tables: {sorted(still_missing)}")
+            logger.error("Run: alembic upgrade head")
+            logger.error("=" * 60)
+            raise RuntimeError(
+                f"PostgreSQL schema not initialized — {len(still_missing)} tables missing. "
+                f"Run 'alembic upgrade head' to create them."
+            )
 
     logger.info(f"PostgreSQL schema verified — {len(existing)} tables present")
-
-    # Auto-add missing columns (safe for production — ADD COLUMN IF NOT EXISTS)
-    _pg_ensure_columns()
 
 
 def _pg_ensure_columns():
