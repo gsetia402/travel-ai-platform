@@ -107,19 +107,45 @@ def validate_schema():
 
 
 def _pg_ensure_columns():
-    """Add missing columns to PostgreSQL tables at startup. Uses ADD COLUMN IF NOT EXISTS."""
+    """Add missing columns and tables to PostgreSQL at startup."""
     from sqlalchemy import text
-    migrations = [
+    column_migrations = [
         "ALTER TABLE trips ADD COLUMN IF NOT EXISTS financial_model VARCHAR NOT NULL DEFAULT 'SPONSORED'",
         "ALTER TABLE expenses ADD COLUMN IF NOT EXISTS receipt_path VARCHAR",
     ]
+    table_migrations = [
+        """CREATE TABLE IF NOT EXISTS payments (
+            payment_id VARCHAR PRIMARY KEY,
+            trip_id VARCHAR NOT NULL REFERENCES trips(trip_id) ON DELETE CASCADE,
+            traveller_id VARCHAR REFERENCES travellers(traveller_id) ON DELETE CASCADE,
+            payment_type VARCHAR NOT NULL,
+            amount FLOAT NOT NULL,
+            payment_date DATE,
+            notes VARCHAR,
+            proof_path VARCHAR,
+            status VARCHAR NOT NULL DEFAULT 'APPROVED',
+            rejected_reason VARCHAR,
+            sponsor_name VARCHAR,
+            created_at TIMESTAMP DEFAULT NOW()
+        )""",
+        """CREATE TABLE IF NOT EXISTS trip_payment_config (
+            trip_id VARCHAR PRIMARY KEY REFERENCES trips(trip_id) ON DELETE CASCADE,
+            expected_amount_per_traveller FLOAT DEFAULT 0,
+            registration_fee_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+            registration_fee_amount FLOAT DEFAULT 0,
+            sponsor_name VARCHAR,
+            sponsor_commitment FLOAT DEFAULT 0,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )""",
+    ]
     with engine.begin() as conn:
-        for stmt in migrations:
+        for stmt in table_migrations + column_migrations:
             try:
                 conn.execute(text(stmt))
             except Exception as e:
-                logger.warning(f"Column migration skipped: {e}")
-    logger.info("PostgreSQL column check complete")
+                logger.warning(f"Migration skipped: {e}")
+    logger.info("PostgreSQL schema check complete")
 
 
 def _masked_url() -> str:
