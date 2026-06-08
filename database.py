@@ -143,12 +143,21 @@ def _pg_ensure_columns():
             updated_at TIMESTAMP DEFAULT NOW()
         )""",
     ]
+    data_fixes = [
+        # Backfill NULL payment_date with created_at date
+        "UPDATE payments SET payment_date = created_at::date WHERE payment_date IS NULL",
+    ]
     with engine.begin() as conn:
         for stmt in table_migrations + column_migrations:
             try:
                 conn.execute(text(stmt))
             except Exception as e:
                 logger.warning(f"Migration skipped: {e}")
+        for stmt in data_fixes:
+            try:
+                conn.execute(text(stmt))
+            except Exception as e:
+                logger.warning(f"Data fix skipped: {e}")
     logger.info("PostgreSQL schema check complete")
 
 

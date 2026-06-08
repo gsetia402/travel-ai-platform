@@ -12,13 +12,14 @@ from models.payment import PaymentTable, TripPaymentConfigTable
 
 def create_payment(db: Session, trip_id: str, traveller_id: Optional[str], payment_type: str,
                    amount: float, payment_date=None, notes: str = None, sponsor_name: str = None) -> PaymentTable:
+    from datetime import date as _date
     payment = PaymentTable(
         payment_id=str(uuid.uuid4()),
         trip_id=trip_id,
         traveller_id=traveller_id,
         payment_type=payment_type,
         amount=amount,
-        payment_date=payment_date,
+        payment_date=payment_date or _date.today(),
         notes=notes,
         sponsor_name=sponsor_name,
         status="APPROVED",
@@ -69,7 +70,10 @@ def sum_approved_payments_by_traveller(db: Session, trip_id: str, traveller_id: 
 
 
 def last_payment_date_by_traveller(db: Session, trip_id: str, traveller_id: str):
-    result = db.query(func.max(PaymentTable.payment_date)).filter(
+    from sqlalchemy import case, cast, Date
+    # Use payment_date if available, otherwise fall back to created_at date
+    date_expr = func.coalesce(PaymentTable.payment_date, cast(PaymentTable.created_at, Date))
+    result = db.query(func.max(date_expr)).filter(
         PaymentTable.trip_id == trip_id,
         PaymentTable.traveller_id == traveller_id,
         PaymentTable.status == "APPROVED",
