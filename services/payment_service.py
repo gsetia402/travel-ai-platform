@@ -12,6 +12,7 @@ from repositories.payment_repository import (
     create_payment, get_payment_by_id, get_payments_by_trip, get_payments_by_traveller,
     sum_approved_payments_by_trip, sum_approved_payments_by_traveller, sum_sponsor_payments,
     reject_payment, delete_payment, get_payment_config, upsert_payment_config,
+    last_payment_date_by_traveller,
 )
 from repositories.trip_repository import get_trip_by_id
 from repositories.traveller_repository import get_travellers_by_trip
@@ -90,13 +91,30 @@ def get_config(db: Session, trip_id: str) -> PaymentConfigResponse:
     return PaymentConfigResponse(trip_id=trip_id)
 
 
-def get_traveller_payment_summaries(db: Session, trip_id: str) -> List[TravellerPaymentSummary]:
+def _calc_expected_per_traveller(db: Session, trip_id: str):
+    """Auto-calculate expected amount per traveller for traveller-funded trips."""
+    trip = get_trip_by_id(db, trip_id)
     config = get_payment_config(db, trip_id)
-    expected = config.expected_amount_per_traveller if config else 0
-    reg_fee = config.registration_fee_amount if config and config.registration_fee_enabled else 0
-    total_expected = (expected or 0) + (reg_fee or 0)
-
     travellers = get_travellers_by_trip(db, trip_id)
+    traveller_count = len(travellers)
+
+    financial_model = trip.financial_model or "SPONSORED" if trip else "SPONSORED"
+
+    if financial_model == "TRAVELLER_FUNDED" and traveller_count > 0:
+        # Auto-calculate from budget
+        auto_per = round((trip.budget or 0) / traveller_count, 2)
+    else:
+        # Fallback to manual config
+        auto_per = config.expected_amount_per_traveller if config else 0
+
+    reg_fee = config.registration_fee_amount if config and config.registration_fee_enabled else 0
+    return trip, config, travellers, auto_per, reg_fee
+
+
+def get_traveller_payment_summaries(db: Session, trip_id: str) -> List[TravellerPaymentSummary]:
+    trip, config, travellers, expected_per, reg_fee = _calc_expected_per_traveller(db, trip_id)
+    total_expected = (expected_per or 0) + (reg_fee or 0)
+
     summaries = []
     for t in travellers:
         paid = sum_approved_payments_by_traveller(db, trip_id, t.traveller_id)
@@ -108,8 +126,8 @@ def get_traveller_payment_summaries(db: Session, trip_id: str) -> List[Traveller
         else:
             status = "PENDING"
 
-        # Check registration fee specifically
         reg_paid = paid >= reg_fee if reg_fee > 0 else True
+        last_date = last_payment_date_by_traveller(db, trip_id, t.traveller_id)
 
         summaries.append(TravellerPaymentSummary(
             traveller_id=t.traveller_id,
@@ -119,6 +137,7 @@ def get_traveller_payment_summaries(db: Session, trip_id: str) -> List[Traveller
             outstanding_amount=outstanding,
             payment_status=status,
             registration_fee_paid=reg_paid,
+            last_payment_date=last_date,
         ))
     return summaries
 
@@ -128,25 +147,19 @@ def get_payment_dashboard(db: Session, trip_id: str) -> PaymentDashboard:
     if not trip:
         raise ValueError("Trip not found")
 
-    config = get_payment_config(db, trip_id)
     expenses = sum_expenses_by_trip(db, trip_id)
     amount_received = sum_approved_payments_by_trip(db, trip_id)
-
     financial_model = trip.financial_model or "SPONSORED"
 
     if financial_model == "TRAVELLER_FUNDED":
-        expected_per = config.expected_amount_per_traveller if config else 0
-        reg_fee = config.registration_fee_amount if config and config.registration_fee_enabled else 0
+        _, config, travellers, expected_per, reg_fee = _calc_expected_per_traveller(db, trip_id)
         total_expected_per = (expected_per or 0) + (reg_fee or 0)
-
-        travellers = get_travellers_by_trip(db, trip_id)
         total_travellers = len(travellers)
         total_expected_all = total_expected_per * total_travellers
 
         outstanding = max(total_expected_all - amount_received, 0)
         available_balance = amount_received - expenses
 
-        # Count statuses
         paid_count = partial_count = pending_count = 0
         for t in travellers:
             t_paid = sum_approved_payments_by_traveller(db, trip_id, t.traveller_id)
@@ -164,13 +177,14 @@ def get_payment_dashboard(db: Session, trip_id: str) -> PaymentDashboard:
             outstanding_amount=outstanding,
             expenses=expenses,
             available_balance=available_balance,
+            expected_per_traveller=total_expected_per,
             paid_count=paid_count,
             partial_count=partial_count,
             pending_count=pending_count,
             total_travellers=total_travellers,
         )
     else:
-        # SPONSORED
+        config = get_payment_config(db, trip_id)
         sponsor_commitment = config.sponsor_commitment if config else 0
         sponsor_received = sum_sponsor_payments(db, trip_id)
         sponsor_outstanding = max((sponsor_commitment or 0) - sponsor_received, 0)

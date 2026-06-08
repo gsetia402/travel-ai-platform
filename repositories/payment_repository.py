@@ -68,6 +68,15 @@ def sum_approved_payments_by_traveller(db: Session, trip_id: str, traveller_id: 
     return float(result)
 
 
+def last_payment_date_by_traveller(db: Session, trip_id: str, traveller_id: str):
+    result = db.query(func.max(PaymentTable.payment_date)).filter(
+        PaymentTable.trip_id == trip_id,
+        PaymentTable.traveller_id == traveller_id,
+        PaymentTable.status == "APPROVED",
+    ).scalar()
+    return result
+
+
 def sum_sponsor_payments(db: Session, trip_id: str) -> float:
     result = db.query(func.coalesce(func.sum(PaymentTable.amount), 0)).filter(
         PaymentTable.trip_id == trip_id,

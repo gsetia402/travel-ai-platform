@@ -119,6 +119,7 @@ class TravellerPaymentSummary(BaseModel):
     outstanding_amount: float
     payment_status: str
     registration_fee_paid: bool = False
+    last_payment_date: Optional[date] = None
 
 
 class PaymentDashboard(BaseModel):
@@ -128,6 +129,7 @@ class PaymentDashboard(BaseModel):
     outstanding_amount: float
     expenses: float
     available_balance: float
+    expected_per_traveller: float = 0
     paid_count: int = 0
     partial_count: int = 0
     pending_count: int = 0
